@@ -1,0 +1,33 @@
+{
+  "name": "@knb/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/startup/index.ts",
+    "start": "node dist/startup/index.js",
+    "typecheck": "tsc --noEmit",
+    "schema": "tsx src/startup/apply-schema.ts"
+  },
+  "dependencies": {
+    "zod": "^3.23.8",
+    "uuid": "^10.0.0",
+    "pg": "^8.13.0",
+    "minio": "^8.0.0",
+    "nats": "^2.28.0",
+    "express": "^4.21.0",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/uuid": "^10.0.0",
+    "@types/pg": "^8.11.0",
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0"
+  }
+}
