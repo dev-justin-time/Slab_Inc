@@ -1,0 +1,3421 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>
+      CNC Wireframe Studio — G-Code Viewer & Simulation — Young and Associates
+      Catalog
+    </title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
+    <style>
+      :root {
+        --bg-950: #0a0a0f;
+        --bg-900: #0f172a;
+        --bg-800: #1e293b;
+        --accent: #00d4ff;
+        --success: #00ff88;
+        --warning: #ffb700;
+        --danger: #ff5252;
+        --text: #e2e8f0;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "Inter", system-ui, sans-serif;
+        background: var(--bg-950);
+        color: var(--text);
+        overflow: hidden;
+        height: 100vh;
+      }
+      #viewport {
+        position: absolute;
+        inset: 0;
+      }
+      #viewport canvas {
+        display: block;
+      }
+
+      .panel {
+        background: rgba(15, 23, 42, 0.92);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(0, 212, 255, 0.2);
+        border-radius: 8px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      }
+
+      .panel-header {
+        padding: 10px 14px;
+        border-bottom: 1px solid rgba(0, 212, 255, 0.15);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: var(--accent);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .btn {
+        padding: 6px 12px;
+        font-size: 11px;
+        font-weight: 600;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.15s;
+        border: 1px solid transparent;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .btn-primary {
+        background: rgba(0, 212, 255, 0.15);
+        color: var(--accent);
+        border-color: rgba(0, 212, 255, 0.4);
+      }
+      .btn-primary:hover {
+        background: rgba(0, 212, 255, 0.3);
+        transform: translateY(-1px);
+      }
+      .btn-success {
+        background: rgba(0, 255, 136, 0.15);
+        color: var(--success);
+        border-color: rgba(0, 255, 136, 0.4);
+      }
+      .btn-success:hover {
+        background: rgba(0, 255, 136, 0.3);
+      }
+      .btn-warning {
+        background: rgba(255, 183, 0, 0.15);
+        color: var(--warning);
+        border-color: rgba(255, 183, 0, 0.4);
+      }
+      .btn-warning:hover {
+        background: rgba(255, 183, 0, 0.3);
+      }
+      .btn-danger {
+        background: rgba(255, 82, 82, 0.15);
+        color: var(--danger);
+        border-color: rgba(255, 82, 82, 0.4);
+      }
+      .btn-danger:hover {
+        background: rgba(255, 82, 82, 0.3);
+      }
+      .btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      .part-item {
+        padding: 8px 10px;
+        margin: 3px 0;
+        background: rgba(0, 212, 255, 0.05);
+        border-left: 3px solid rgba(0, 212, 255, 0.3);
+        border-radius: 0 4px 4px 0;
+        cursor: pointer;
+        transition: all 0.15s;
+        font-size: 11px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .part-item:hover {
+        background: rgba(0, 212, 255, 0.15);
+        border-left-color: var(--accent);
+      }
+      .part-item.selected {
+        background: rgba(0, 212, 255, 0.25);
+        border-left-color: var(--success);
+        box-shadow: 0 0 0 1px rgba(0, 255, 136, 0.3);
+      }
+      .part-item.hidden-part {
+        opacity: 0.4;
+      }
+
+      .slider-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 0;
+        font-size: 11px;
+      }
+      .slider-row label {
+        flex: 0 0 70px;
+        color: #94a3b8;
+        text-transform: uppercase;
+        font-size: 10px;
+        letter-spacing: 0.5px;
+      }
+      .slider-row input[type="range"] {
+        flex: 1;
+        accent-color: var(--accent);
+        height: 4px;
+      }
+      .slider-row .value {
+        flex: 0 0 50px;
+        text-align: right;
+        color: var(--accent);
+        font-family: "Fira Code", monospace;
+        font-weight: 600;
+      }
+
+      .status-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 32px;
+        background: rgba(10, 10, 15, 0.95);
+        border-top: 1px solid rgba(0, 212, 255, 0.2);
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        font-size: 11px;
+        font-family: "Fira Code", monospace;
+        gap: 20px;
+        z-index: 100;
+      }
+      .status-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .status-label {
+        color: #64748b;
+        text-transform: uppercase;
+        font-size: 9px;
+      }
+      .status-value {
+        color: var(--accent);
+        font-weight: 600;
+      }
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--success);
+        box-shadow: 0 0 8px var(--success);
+        animation: pulse 2s infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+
+      .gizmo {
+        position: fixed;
+        bottom: 50px;
+        right: 20px;
+        width: 100px;
+        height: 100px;
+        pointer-events: none;
+        z-index: 50;
+      }
+
+      .mode-indicator {
+        position: fixed;
+        top: 70px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 6px 16px;
+        background: rgba(0, 212, 255, 0.2);
+        border: 1px solid var(--accent);
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        color: var(--accent);
+        z-index: 50;
+        transition: all 0.3s;
+      }
+
+      .timeline {
+        position: fixed;
+        bottom: 40px;
+        left: 20px;
+        right: 20px;
+        height: 40px;
+        background: rgba(15, 23, 42, 0.9);
+        border: 1px solid rgba(0, 212, 255, 0.2);
+        border-radius: 6px;
+        padding: 8px 12px;
+        display: none;
+        align-items: center;
+        gap: 10px;
+        z-index: 90;
+      }
+      .timeline.active {
+        display: flex;
+      }
+      .timeline-progress {
+        flex: 1;
+        height: 4px;
+        background: rgba(0, 212, 255, 0.2);
+        border-radius: 2px;
+        position: relative;
+        cursor: pointer;
+      }
+      .timeline-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--accent), var(--success));
+        border-radius: 2px;
+        width: 0%;
+        transition: width 0.1s;
+      }
+      .timeline-time {
+        font-family: "Fira Code", monospace;
+        font-size: 11px;
+        color: var(--accent);
+        min-width: 80px;
+      }
+
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.2);
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(0, 212, 255, 0.3);
+        border-radius: 3px;
+      }
+
+      .loading-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 10, 15, 0.95);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        transition: opacity 0.5s;
+      }
+      .loading-overlay.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .spinner {
+        width: 50px;
+        height: 50px;
+        border: 3px solid rgba(0, 212, 255, 0.2);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="viewport"></div>
+
+    <!-- Top Bar -->
+    <div
+      class="fixed top-0 left-0 right-0 h-12 bg-slate-900/95 backdrop-blur border-b border-cyan-500/20 flex items-center justify-between px-4 z-50"
+    >
+      <div class="flex items-center gap-3">
+        <div
+          class="w-8 h-8 rounded bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center"
+        >
+          <svg
+            class="w-5 h-5 text-white"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+            />
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+            />
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-sm font-bold tracking-wider text-cyan-400">
+            CNC WIREFRAME STUDIO — YOUNG AND ASSOCIATES
+          </h1>
+          <p class="text-[9px] text-slate-500 tracking-widest">
+            YOUNG NOMENCLATURE · G-CODE VIEWER · SIMULATION · ASSEMBLY
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <select
+          id="skuSelect"
+          class="btn btn-primary"
+          style="max-width: 230px; text-transform: none"
+        ></select>
+        <button id="btnLoadSku" class="btn btn-success">▶ Load SKU</button>
+        <button id="btnLoad" class="btn btn-primary">📂 Load G-Code</button>
+        <button id="btnReset" class="btn btn-warning">⟲ Reset View</button>
+        <button id="btnSound" class="btn btn-primary">🔊 Sound: ON</button>
+      </div>
+    </div>
+
+    <!-- Mode Indicator -->
+    <div id="modeIndicator" class="mode-indicator">VIEW MODE</div>
+
+    <!-- Left Panel: Parts List -->
+    <div
+      class="panel fixed top-14 left-3 w-72 max-h-[calc(100vh-120px)] overflow-hidden flex flex-col z-40"
+    >
+      <div class="panel-header">
+        <span>📦 Parts (<span id="partCount">0</span>)</span>
+        <div class="flex gap-1">
+          <button
+            id="btnShowAll"
+            class="btn btn-primary"
+            style="padding: 2px 8px; font-size: 9px"
+          >
+            SHOW ALL
+          </button>
+        </div>
+      </div>
+      <div id="partsList" class="overflow-y-auto p-2 flex-1"></div>
+
+      <div
+        class="border-t border-cyan-500/15 p-3"
+        id="grainPlanPanel"
+        style="display: none"
+      >
+        <div class="text-[10px] text-slate-500 uppercase tracking-wider mb-2">
+          🌾 Grain Plan <span id="grainStrategy" class="text-cyan-400"></span>
+        </div>
+        <div
+          id="grainSheets"
+          class="text-[10px] text-slate-400 max-h-32 overflow-y-auto mb-2"
+        ></div>
+        <button id="btnGrainColor" class="btn btn-primary w-full mb-1">
+          🎨 Color parts by grain texture
+        </button>
+        <button id="btnGrainMirror" class="btn btn-warning w-full">
+          ⇄ Toggle mirror flags (A/B)
+        </button>
+      </div>
+
+      <div class="border-t border-cyan-500/15 p-3">
+        <div class="text-[10px] text-slate-500 uppercase tracking-wider mb-2">
+          Assembly
+        </div>
+        <div class="flex gap-1">
+          <button id="btnAssemble" class="btn btn-success flex-1">
+            ▶ Assemble
+          </button>
+          <button id="btnExplode" class="btn btn-warning flex-1">
+            ◀ Explode
+          </button>
+        </div>
+        <div class="slider-row mt-2">
+          <label>Spread</label>
+          <input type="range" id="explodeSlider" min="0" max="100" value="0" />
+          <span class="value" id="explodeValue">0%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Panel: Controls -->
+    <div
+      class="panel fixed top-14 right-3 w-80 max-h-[calc(100vh-120px)] overflow-y-auto z-40"
+    >
+      <div class="panel-header">
+        <span>⚙ Controls</span>
+      </div>
+
+      <div class="p-3 space-y-3">
+        <!-- Transform Mode -->
+        <div>
+          <div class="text-[10px] text-slate-500 uppercase tracking-wider mb-2">
+            Transform Mode
+          </div>
+          <div class="grid grid-cols-3 gap-1">
+            <button id="modeTranslate" class="btn btn-primary">↔ Move</button>
+            <button id="modeRotate" class="btn btn-primary">⟳ Rotate</button>
+            <button id="modeScale" class="btn btn-primary">⤡ Scale</button>
+          </div>
+        </div>
+
+        <!-- Simulation -->
+        <div class="border-t border-cyan-500/15 pt-3">
+          <div class="text-[10px] text-slate-500 uppercase tracking-wider mb-2">
+            Cutting Simulation
+          </div>
+          <div class="flex gap-1 mb-2">
+            <button id="btnPlay" class="btn btn-success flex-1">▶ Play</button>
+            <button id="btnPause" class="btn btn-warning flex-1">
+              ⏸ Pause
+            </button>
+            <button id="btnStop" class="btn btn-danger flex-1">⏹ Stop</button>
+          </div>
+          <div class="slider-row">
+            <label>Speed</label>
+            <input type="range" id="simSpeed" min="1" max="100" value="10" />
+            <span class="value" id="simSpeedValue">10x</span>
+          </div>
+          <div class="slider-row">
+            <label>Tool Size</label>
+            <input type="range" id="toolSize" min="1" max="20" value="5" />
+            <span class="value" id="toolSizeValue">5mm</span>
+          </div>
+        </div>
+
+        <!-- Visual -->
+        <div class="border-t border-cyan-500/15 pt-3">
+          <div class="text-[10px] text-slate-500 uppercase tracking-wider mb-2">
+            Visualization
+          </div>
+          <div class="slider-row">
+            <label>Rapid</label>
+            <input
+              type="range"
+              id="rapidOpacity"
+              min="0"
+              max="100"
+              value="20"
+            />
+            <span class="value" id="rapidOpacityValue">20%</span>
+          </div>
+          <div class="slider-row">
+            <label>Cut</label>
+            <input type="range" id="cutOpacity" min="0" max="100" value="100" />
+            <span class="value" id="cutOpacityValue">100%</span>
+          </div>
+          <div class="slider-row">
+            <label>Drill</label>
+            <input
+              type="range"
+              id="drillOpacity"
+              min="0"
+              max="100"
+              value="80"
+            />
+            <span class="value" id="drillOpacityValue">80%</span>
+          </div>
+          <label class="flex items-center gap-2 text-xs cursor-pointer mt-2">
+            <input type="checkbox" id="showGrid" checked /> Show Grid
+          </label>
+          <label class="flex items-center gap-2 text-xs cursor-pointer">
+            <input type="checkbox" id="showMaterial" checked /> Show Material
+          </label>
+          <label class="flex items-center gap-2 text-xs cursor-pointer">
+            <input type="checkbox" id="showChips" /> Show Chips
+          </label>
+        </div>
+
+        <!-- Sound -->
+        <div class="border-t border-cyan-500/15 pt-3">
+          <div class="text-[10px] text-slate-500 uppercase tracking-wider mb-2">
+            Audio
+          </div>
+          <div class="slider-row">
+            <label>Master</label>
+            <input type="range" id="masterVol" min="0" max="100" value="50" />
+            <span class="value" id="masterVolValue">50%</span>
+          </div>
+          <div class="slider-row">
+            <label>Spindle</label>
+            <input type="range" id="spindleVol" min="0" max="100" value="60" />
+            <span class="value" id="spindleVolValue">60%</span>
+          </div>
+          <div class="slider-row">
+            <label>Cutting</label>
+            <input type="range" id="cuttingVol" min="0" max="100" value="70" />
+            <span class="value" id="cuttingVolValue">70%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timeline -->
+    <div id="timeline" class="timeline">
+      <button id="tlPlay" class="btn btn-success" style="padding: 4px 10px">
+        ▶
+      </button>
+      <div class="timeline-progress" id="tlProgress">
+        <div class="timeline-fill" id="tlFill"></div>
+      </div>
+      <div class="timeline-time">
+        <span id="tlCurrent">00:00</span> / <span id="tlTotal">00:00</span>
+      </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <div class="status-item">
+        <div class="status-dot"></div>
+        <span class="status-label">Status</span>
+        <span class="status-value" id="statusState">READY</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Parts</span>
+        <span class="status-value" id="statusParts">0</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Sheets</span>
+        <span class="status-value" id="statusSheets">0</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Operations</span>
+        <span class="status-value" id="statusOps">0</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Tool</span>
+        <span class="status-value" id="statusTool">T00</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Feed</span>
+        <span class="status-value" id="statusFeed">0 IPM</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Spindle</span>
+        <span class="status-value" id="statusSpindle">0 RPM</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Pos</span>
+        <span class="status-value" id="statusPos">X0.000 Y0.000 Z0.000</span>
+      </div>
+      <div class="flex-1"></div>
+      <div class="status-item">
+        <span class="status-label">Mode</span>
+        <span class="status-value" id="statusMode">G20 INCH</span>
+      </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading" class="loading-overlay">
+      <div class="spinner"></div>
+      <p class="mt-4 text-sm text-cyan-400 tracking-widest">
+        INITIALIZING CNC STUDIO
+      </p>
+    </div>
+
+    <!-- Catalog gcode data (generated by scripts/gen-docs.mjs) -->
+    <script src="gcode-data.js"></script>
+
+    <!-- Hidden file input -->
+    <input
+      type="file"
+      id="fileInput"
+      accept=".nc,.gcode,.tap,.txt"
+      style="display: none"
+    />
+
+    <script>
+      // ============================================================================
+      // G-CODE PARSER
+      // ============================================================================
+      class GCodeParser {
+        constructor() {
+          this.parts = new Map();
+          this.currentPart = null;
+          this.currentTool = 0;
+          this.currentSpindle = 0;
+          this.currentFeed = 0;
+          this.position = { x: 0, y: 0, z: 0 };
+          this.absolute = true;
+          this.inches = true;
+          this.plane = "XY";
+          this.operations = [];
+          this.totalTime = 0;
+        }
+
+        parse(code) {
+          this.parts.clear();
+          this.operations = [];
+          this.position = { x: 0, y: 0, z: 0 };
+          this.currentPart = "DEFAULT";
+          this.parts.set(this.currentPart, {
+            name: this.currentPart,
+            ops: [],
+            bounds: null,
+          });
+
+          const lines = code.split("\n");
+          let partComment = null;
+
+          for (let lineNum = 0; lineNum < lines.length; lineNum++) {
+            let line = lines[lineNum].trim();
+
+            // Remove comments but capture them
+            const commentMatch = line.match(/\(([^)]+)\)/);
+            let comment = null;
+            if (commentMatch) {
+              comment = commentMatch[1].trim();
+              line = line.replace(/\([^)]*\)/g, "").trim();
+            }
+
+            // Part program header: O-number line starts a new part (one program per part)
+            const oMatch = line.match(/^O(\d+)\s*$/);
+            if (oMatch) {
+              this.currentPart = "O" + oMatch[1];
+              if (!this.parts.has(this.currentPart)) {
+                this.parts.set(this.currentPart, {
+                  name: comment || "Program " + this.currentPart,
+                  ops: [],
+                  bounds: null,
+                });
+              }
+              continue;
+            }
+
+            // Remove ; comments
+            const semiIdx = line.indexOf(";");
+            if (semiIdx >= 0) line = line.substring(0, semiIdx).trim();
+
+            if (!line) continue;
+
+            // Remove % and line numbers
+            line = line
+              .replace(/^%/, "")
+              .replace(/^N\d+\s*/, "")
+              .trim();
+            if (!line) continue;
+
+            this.parseLine(line, lineNum);
+          }
+
+          // Compute bounds for each part
+          for (const [key, part] of this.parts) {
+            part.bounds = this.computeBounds(part.ops);
+          }
+
+          return {
+            parts: Array.from(this.parts.entries()).map(([k, v]) => ({
+              id: k,
+              ...v,
+            })),
+            operations: this.operations,
+            totalTime: this.totalTime,
+          };
+        }
+
+        parseLine(line, lineNum) {
+          const tokens = line.match(/[A-Za-z]-?[\d.]+/g) || [];
+          if (tokens.length === 0) return;
+
+          let gCode = null;
+          const params = {};
+
+          for (const token of tokens) {
+            const letter = token[0].toUpperCase();
+            const value = parseFloat(token.substring(1));
+
+            if (letter === "G") {
+              gCode = value;
+            } else if (letter === "M") {
+              this.handleMCode(value, lineNum);
+            } else if (letter === "T") {
+              this.currentTool = value;
+            } else if (letter === "S") {
+              this.currentSpindle = value;
+            } else if (letter === "F") {
+              this.currentFeed = value;
+            } else if ("XYZIJKR".includes(letter)) {
+              params[letter] = value;
+            }
+          }
+
+          if (gCode !== null) {
+            this.handleGCode(gCode, params, lineNum);
+          } else if ("XYZ" in params) {
+            // Implicit move (usually after G0/G1 already set)
+            this.addMove(false, params, lineNum);
+          }
+        }
+
+        handleGCode(code, params, lineNum) {
+          switch (code) {
+            case 0: // Rapid
+              this.addMove(false, params, lineNum);
+              break;
+            case 1: // Linear cut
+              this.addMove(true, params, lineNum);
+              break;
+            case 2: // CW Arc
+              this.addArc(true, params, lineNum);
+              break;
+            case 3: // CCW Arc
+              this.addArc(false, params, lineNum);
+              break;
+            case 17:
+              this.plane = "XY";
+              break;
+            case 18:
+              this.plane = "XZ";
+              break;
+            case 19:
+              this.plane = "YZ";
+              break;
+            case 20:
+              this.inches = true;
+              break;
+            case 21:
+              this.inches = false;
+              break;
+            case 90:
+              this.absolute = true;
+              break;
+            case 91:
+              this.absolute = false;
+              break;
+          }
+        }
+
+        handleMCode(code, lineNum) {
+          // M-code pseudo-ops need timing too, or the sim's op-index scan hits an
+          // undefined endTime and the tool position goes NaN on the first M06/M03.
+          let op = null;
+          switch (code) {
+            case 3:
+            case 4: // Spindle on
+              op = {
+                type: "spindle_on",
+                tool: this.currentTool,
+                spindle: this.currentSpindle,
+                line: lineNum,
+                part: this.currentPart,
+              };
+              break;
+            case 5: // Spindle off
+              op = {
+                type: "spindle_off",
+                line: lineNum,
+                part: this.currentPart,
+              };
+              break;
+            case 6: // Tool change
+              op = {
+                type: "tool_change",
+                tool: this.currentTool,
+                line: lineNum,
+                part: this.currentPart,
+              };
+              break;
+            case 30:
+            case 2: // Program end
+              op = {
+                type: "program_end",
+                line: lineNum,
+                part: this.currentPart,
+              };
+              break;
+          }
+          if (op) {
+            op.duration = 0;
+            op.startTime = this.totalTime;
+            op.endTime = this.totalTime;
+            this.operations.push(op);
+          }
+        }
+
+        addMove(isCut, params, lineNum) {
+          const from = { ...this.position };
+          const to = { ...this.position };
+
+          if (this.absolute) {
+            if ("X" in params) to.x = params.X;
+            if ("Y" in params) to.y = params.Y;
+            if ("Z" in params) to.z = params.Z;
+          } else {
+            if ("X" in params) to.x += params.X;
+            if ("Y" in params) to.y += params.Y;
+            if ("Z" in params) to.z += params.Z;
+          }
+
+          // Convert to mm if in inches
+          const scale = this.inches ? 25.4 : 1;
+          const fromMM = {
+            x: from.x * scale,
+            y: from.y * scale,
+            z: from.z * scale,
+          };
+          const toMM = { x: to.x * scale, y: to.y * scale, z: to.z * scale };
+
+          const op = {
+            type: isCut ? "cut" : "rapid",
+            from: fromMM,
+            to: toMM,
+            tool: this.currentTool,
+            feed: this.currentFeed * scale,
+            spindle: this.currentSpindle,
+            line: lineNum,
+            part: this.currentPart,
+          };
+
+          // Estimate time
+          const dist = Math.sqrt(
+            (toMM.x - fromMM.x) ** 2 +
+              (toMM.y - fromMM.y) ** 2 +
+              (toMM.z - fromMM.z) ** 2,
+          );
+          if (isCut && this.currentFeed > 0) {
+            op.duration = (dist / (this.currentFeed * scale)) * 60;
+          } else {
+            op.duration = (dist / 5000) * 60; // Assume rapid at 5000 mm/min
+          }
+          op.startTime = this.totalTime;
+          this.totalTime += op.duration;
+          op.endTime = this.totalTime;
+
+          this.operations.push(op);
+
+          if (this.parts.has(this.currentPart)) {
+            this.parts.get(this.currentPart).ops.push(op);
+          }
+
+          this.position = to;
+        }
+
+        addArc(cw, params, lineNum) {
+          const from = { ...this.position };
+          const to = { ...this.position };
+
+          if (this.absolute) {
+            if ("X" in params) to.x = params.X;
+            if ("Y" in params) to.y = params.Y;
+            if ("Z" in params) to.z = params.Z;
+          } else {
+            if ("X" in params) to.x += params.X;
+            if ("Y" in params) to.y += params.Y;
+            if ("Z" in params) to.z += params.Z;
+          }
+
+          // Get center (I, J relative to start)
+          const i = params.I || 0;
+          const j = params.J || 0;
+
+          const scale = this.inches ? 25.4 : 1;
+          const fromMM = {
+            x: from.x * scale,
+            y: from.y * scale,
+            z: from.z * scale,
+          };
+          const toMM = { x: to.x * scale, y: to.y * scale, z: to.z * scale };
+          const center = {
+            x: (from.x + i) * scale,
+            y: (from.y + j) * scale,
+          };
+
+          // Generate arc segments
+          const radius = Math.sqrt(
+            (fromMM.x - center.x) ** 2 + (fromMM.y - center.y) ** 2,
+          );
+          let startAngle = Math.atan2(fromMM.y - center.y, fromMM.x - center.x);
+          let endAngle = Math.atan2(toMM.y - center.y, toMM.x - center.x);
+
+          if (cw) {
+            if (endAngle >= startAngle) endAngle -= Math.PI * 2;
+          } else {
+            if (endAngle <= startAngle) endAngle += Math.PI * 2;
+          }
+
+          const segments = 16;
+          let prev = fromMM;
+          for (let s = 1; s <= segments; s++) {
+            const t = s / segments;
+            const angle = startAngle + (endAngle - startAngle) * t;
+            const z = fromMM.z + (toMM.z - fromMM.z) * t;
+            const pt = {
+              x: center.x + Math.cos(angle) * radius,
+              y: center.y + Math.sin(angle) * radius,
+              z: z,
+            };
+
+            const op = {
+              type: "cut",
+              from: prev,
+              to: pt,
+              tool: this.currentTool,
+              feed: this.currentFeed * scale,
+              spindle: this.currentSpindle,
+              line: lineNum,
+              part: this.currentPart,
+              isArc: true,
+            };
+
+            const dist = Math.sqrt(
+              (pt.x - prev.x) ** 2 +
+                (pt.y - prev.y) ** 2 +
+                (pt.z - prev.z) ** 2,
+            );
+            if (this.currentFeed > 0) {
+              op.duration = (dist / (this.currentFeed * scale)) * 60;
+            } else {
+              op.duration = 0;
+            }
+            op.startTime = this.totalTime;
+            this.totalTime += op.duration;
+            op.endTime = this.totalTime;
+
+            this.operations.push(op);
+            if (this.parts.has(this.currentPart)) {
+              this.parts.get(this.currentPart).ops.push(op);
+            }
+
+            prev = pt;
+          }
+
+          this.position = to;
+        }
+
+        computeBounds(ops) {
+          if (ops.length === 0) return null;
+          const min = { x: Infinity, y: Infinity, z: Infinity };
+          const max = { x: -Infinity, y: -Infinity, z: -Infinity };
+
+          for (const op of ops) {
+            if (op.from) {
+              min.x = Math.min(min.x, op.from.x);
+              min.y = Math.min(min.y, op.from.y);
+              min.z = Math.min(min.z, op.from.z);
+              max.x = Math.max(max.x, op.from.x);
+              max.y = Math.max(max.y, op.from.y);
+              max.z = Math.max(max.z, op.from.z);
+            }
+            if (op.to) {
+              min.x = Math.min(min.x, op.to.x);
+              min.y = Math.min(min.y, op.to.y);
+              min.z = Math.min(min.z, op.to.z);
+              max.x = Math.max(max.x, op.to.x);
+              max.y = Math.max(max.y, op.to.y);
+              max.z = Math.max(max.z, op.to.z);
+            }
+          }
+
+          return {
+            min,
+            max,
+            center: {
+              x: (min.x + max.x) / 2,
+              y: (min.y + max.y) / 2,
+              z: (min.z + max.z) / 2,
+            },
+            size: {
+              x: max.x - min.x,
+              y: max.y - min.y,
+              z: max.z - min.z,
+            },
+          };
+        }
+      }
+
+      // ============================================================================
+      // AUDIO ENGINE — Realistic CNC Sounds
+      // ============================================================================
+      class CNCAudioEngine {
+        constructor() {
+          this.ctx = null;
+          this.enabled = true;
+          this.masterGain = null;
+          this.spindleGain = null;
+          this.cuttingGain = null;
+          this.spindleOsc = null;
+          this.cuttingNoise = null;
+          this.cuttingFilter = null;
+          this.rapidOsc = null;
+          this.rapidGain = null;
+          this.initialized = false;
+          this.volumes = { master: 0.5, spindle: 0.6, cutting: 0.7 };
+        }
+
+        init() {
+          if (this.initialized) return;
+          try {
+            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+            // Master gain
+            this.masterGain = this.ctx.createGain();
+            this.masterGain.gain.value = this.volumes.master;
+            this.masterGain.connect(this.ctx.destination);
+
+            // Spindle oscillator (hum)
+            this.spindleGain = this.ctx.createGain();
+            this.spindleGain.gain.value = 0;
+            this.spindleGain.connect(this.masterGain);
+
+            this.spindleOsc = this.ctx.createOscillator();
+            this.spindleOsc.type = "sawtooth";
+            this.spindleOsc.frequency.value = 120;
+
+            const spindleFilter = this.ctx.createBiquadFilter();
+            spindleFilter.type = "lowpass";
+            spindleFilter.frequency.value = 800;
+            spindleFilter.Q.value = 2;
+
+            this.spindleOsc.connect(spindleFilter);
+            spindleFilter.connect(this.spindleGain);
+            this.spindleOsc.start();
+
+            // Cutting noise (filtered white noise)
+            this.cuttingGain = this.ctx.createGain();
+            this.cuttingGain.gain.value = 0;
+            this.cuttingGain.connect(this.masterGain);
+
+            const bufferSize = this.ctx.sampleRate * 2;
+            const noiseBuffer = this.ctx.createBuffer(
+              1,
+              bufferSize,
+              this.ctx.sampleRate,
+            );
+            const output = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+              output[i] = Math.random() * 2 - 1;
+            }
+
+            this.cuttingNoise = this.ctx.createBufferSource();
+            this.cuttingNoise.buffer = noiseBuffer;
+            this.cuttingNoise.loop = true;
+
+            this.cuttingFilter = this.ctx.createBiquadFilter();
+            this.cuttingFilter.type = "bandpass";
+            this.cuttingFilter.frequency.value = 2000;
+            this.cuttingFilter.Q.value = 1;
+
+            this.cuttingNoise.connect(this.cuttingFilter);
+            this.cuttingFilter.connect(this.cuttingGain);
+            this.cuttingNoise.start();
+
+            // Rapid move oscillator (high-pitched whine)
+            this.rapidGain = this.ctx.createGain();
+            this.rapidGain.gain.value = 0;
+            this.rapidGain.connect(this.masterGain);
+
+            this.rapidOsc = this.ctx.createOscillator();
+            this.rapidOsc.type = "triangle";
+            this.rapidOsc.frequency.value = 800;
+
+            const rapidFilter = this.ctx.createBiquadFilter();
+            rapidFilter.type = "bandpass";
+            rapidFilter.frequency.value = 1200;
+            rapidFilter.Q.value = 5;
+
+            this.rapidOsc.connect(rapidFilter);
+            rapidFilter.connect(this.rapidGain);
+            this.rapidOsc.start();
+
+            this.initialized = true;
+          } catch (e) {
+            console.warn("Audio init failed:", e);
+          }
+        }
+
+        setSpindle(rpm, active) {
+          if (!this.initialized || !this.enabled) return;
+          const t = this.ctx.currentTime;
+          const freq = 60 + (rpm / 12000) * 240; // 60Hz to 300Hz
+          this.spindleOsc.frequency.setTargetAtTime(freq, t, 0.1);
+          const vol = active ? this.volumes.spindle * 0.3 : 0;
+          this.spindleGain.gain.setTargetAtTime(vol, t, 0.1);
+        }
+
+        setCutting(intensity, feed) {
+          if (!this.initialized || !this.enabled) return;
+          const t = this.ctx.currentTime;
+          const vol = intensity * this.volumes.cutting * 0.4;
+          this.cuttingGain.gain.setTargetAtTime(vol, t, 0.05);
+          // Filter frequency based on feed rate
+          const freq = 800 + (feed / 200) * 3000;
+          this.cuttingFilter.frequency.setTargetAtTime(
+            Math.min(freq, 5000),
+            t,
+            0.1,
+          );
+        }
+
+        setRapid(active) {
+          if (!this.initialized || !this.enabled) return;
+          const t = this.ctx.currentTime;
+          const vol = active ? 0.08 : 0;
+          this.rapidGain.gain.setTargetAtTime(vol, t, 0.05);
+        }
+
+        playToolChange() {
+          if (!this.initialized || !this.enabled) return;
+          const t = this.ctx.currentTime;
+
+          // Mechanical clunk
+          const osc = this.ctx.createOscillator();
+          osc.type = "square";
+          osc.frequency.value = 80;
+
+          const gain = this.ctx.createGain();
+          gain.gain.setValueAtTime(0, t);
+          gain.gain.linearRampToValueAtTime(
+            0.3 * this.volumes.master,
+            t + 0.01,
+          );
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = "lowpass";
+          filter.frequency.value = 300;
+
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(this.masterGain);
+
+          osc.start(t);
+          osc.stop(t + 0.3);
+
+          // Metallic ring
+          const ring = this.ctx.createOscillator();
+          ring.type = "sine";
+          ring.frequency.value = 1200;
+
+          const ringGain = this.ctx.createGain();
+          ringGain.gain.setValueAtTime(0, t + 0.05);
+          ringGain.gain.linearRampToValueAtTime(
+            0.1 * this.volumes.master,
+            t + 0.06,
+          );
+          ringGain.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+
+          ring.connect(ringGain);
+          ringGain.connect(this.masterGain);
+          ring.start(t + 0.05);
+          ring.stop(t + 0.8);
+        }
+
+        playDrill() {
+          if (!this.initialized || !this.enabled) return;
+          const t = this.ctx.currentTime;
+
+          const osc = this.ctx.createOscillator();
+          osc.type = "sawtooth";
+          osc.frequency.setValueAtTime(200, t);
+          osc.frequency.exponentialRampToValueAtTime(80, t + 0.2);
+
+          const gain = this.ctx.createGain();
+          gain.gain.setValueAtTime(0.2 * this.volumes.master, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = "lowpass";
+          filter.frequency.value = 500;
+
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(this.masterGain);
+
+          osc.start(t);
+          osc.stop(t + 0.3);
+        }
+
+        setMasterVolume(v) {
+          this.volumes.master = v;
+          if (this.masterGain) {
+            this.masterGain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.1);
+          }
+        }
+
+        setSpindleVolume(v) {
+          this.volumes.spindle = v;
+        }
+        setCuttingVolume(v) {
+          this.volumes.cutting = v;
+        }
+
+        toggle() {
+          this.enabled = !this.enabled;
+          if (!this.enabled) {
+            this.setSpindle(0, false);
+            this.setCutting(0, 0);
+            this.setRapid(false);
+          }
+          return this.enabled;
+        }
+
+        silence() {
+          if (!this.initialized) return;
+          const t = this.ctx.currentTime;
+          this.spindleGain.gain.setTargetAtTime(0, t, 0.05);
+          this.cuttingGain.gain.setTargetAtTime(0, t, 0.05);
+          this.rapidGain.gain.setTargetAtTime(0, t, 0.05);
+        }
+      }
+
+      // ============================================================================
+      // CNC VIEWER & SIMULATION
+      // ============================================================================
+      class CNCViewer {
+        constructor() {
+          this.container = document.getElementById("viewport");
+          this.scene = new THREE.Scene();
+          this.camera = new THREE.PerspectiveCamera(
+            50,
+            window.innerWidth / window.innerHeight,
+            1,
+            50000,
+          );
+          this.renderer = new THREE.WebGLRenderer({
+            antialias: true,
+            alpha: true,
+          });
+          this.renderer.setSize(window.innerWidth, window.innerHeight);
+          this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+          this.renderer.setClearColor(0x0a0a0f);
+          this.container.appendChild(this.renderer.domElement);
+
+          this.orbitControls = new THREE.OrbitControls(
+            this.camera,
+            this.renderer.domElement,
+          );
+          this.orbitControls.enableDamping = true;
+          this.orbitControls.dampingFactor = 0.08;
+
+          this.transformControls = new THREE.TransformControls(
+            this.camera,
+            this.renderer.domElement,
+          );
+          this.scene.add(this.transformControls);
+
+          this.transformControls.addEventListener("dragging-changed", (e) => {
+            this.orbitControls.enabled = !e.value;
+          });
+
+          this.parts = new Map(); // id -> { group, ops, bounds, visible, assembled }
+          this.partMeshes = new Map(); // id -> mesh
+          this.selectedPart = null;
+          this.parser = new GCodeParser();
+          this.audio = new CNCAudioEngine();
+
+          // Simulation state
+          this.simulation = {
+            playing: false,
+            paused: false,
+            currentTime: 0,
+            totalTime: 0,
+            speed: 10,
+            currentOpIndex: 0,
+            operations: [],
+          };
+
+          // Tool visualization
+          this.tool = null;
+          this.toolPath = null;
+
+          // Chips particle system
+          this.chips = null;
+          this.chipParticles = [];
+
+          // Assembly state
+          this.assembly = {
+            exploded: false,
+            explodeFactor: 0,
+            targetFactor: 0,
+            originalPositions: new Map(),
+            assembledPositions: new Map(),
+          };
+
+          this.setupScene();
+          this.setupLights();
+          this.setupGrid();
+          this.setupMaterial();
+          this.setupTool();
+          this.setupChips();
+          this.setupInteraction();
+
+          window.addEventListener("resize", () => this.onResize());
+
+          this.animate();
+        }
+
+        setupScene() {
+          this.scene.background = new THREE.Color(0x0a0a0f);
+          this.scene.fog = new THREE.Fog(0x0a0a0f, 2000, 15000);
+
+          this.camera.position.set(400, 400, 400);
+          this.camera.lookAt(0, 0, 0);
+        }
+
+        setupLights() {
+          const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+          this.scene.add(ambient);
+
+          const dir1 = new THREE.DirectionalLight(0xffffff, 0.6);
+          dir1.position.set(500, 1000, 500);
+          this.scene.add(dir1);
+
+          const dir2 = new THREE.DirectionalLight(0x00d4ff, 0.3);
+          dir2.position.set(-500, 500, -500);
+          this.scene.add(dir2);
+
+          const point = new THREE.PointLight(0x00ff88, 0.5, 1000);
+          point.position.set(0, 200, 0);
+          this.scene.add(point);
+        }
+
+        setupGrid() {
+          this.grid = new THREE.GridHelper(2000, 40, 0x00d4ff, 0x1e293b);
+          this.grid.material.opacity = 0.3;
+          this.grid.material.transparent = true;
+          this.scene.add(this.grid);
+
+          // Axis helper
+          this.axisHelper = new THREE.AxesHelper(200);
+          this.scene.add(this.axisHelper);
+        }
+
+        setupMaterial() {
+          // Workpiece material (MDF/plywood block)
+          const materialGeo = new THREE.BoxGeometry(1, 1, 1);
+          const materialMat = new THREE.MeshStandardMaterial({
+            color: 0xd4a574,
+            roughness: 0.9,
+            metalness: 0.0,
+            transparent: true,
+            opacity: 0.3,
+          });
+          this.workpiece = new THREE.Mesh(materialGeo, materialMat);
+          this.workpiece.visible = false;
+          this.scene.add(this.workpiece);
+
+          // Wireframe overlay
+          const wireGeo = new THREE.EdgesGeometry(materialGeo);
+          const wireMat = new THREE.LineBasicMaterial({
+            color: 0xd4a574,
+            opacity: 0.5,
+            transparent: true,
+          });
+          this.workpieceWire = new THREE.LineSegments(wireGeo, wireMat);
+          this.workpiece.add(this.workpieceWire);
+        }
+
+        setupTool() {
+          // Tool assembly: collet + shaft + cutting edge
+          this.tool = new THREE.Group();
+
+          // Collet
+          const colletGeo = new THREE.CylinderGeometry(8, 6, 20, 16);
+          const colletMat = new THREE.MeshStandardMaterial({
+            color: 0x888888,
+            metalness: 0.9,
+            roughness: 0.3,
+          });
+          const collet = new THREE.Mesh(colletGeo, colletMat);
+          collet.position.y = 60;
+          this.tool.add(collet);
+
+          // Shaft
+          const shaftGeo = new THREE.CylinderGeometry(3, 3, 50, 16);
+          const shaftMat = new THREE.MeshStandardMaterial({
+            color: 0xcccccc,
+            metalness: 0.8,
+            roughness: 0.2,
+          });
+          const shaft = new THREE.Mesh(shaftGeo, shaftMat);
+          shaft.position.y = 25;
+          this.tool.add(shaft);
+
+          // Cutting edge (end mill)
+          const cutterGeo = new THREE.CylinderGeometry(3, 3, 30, 16);
+          const cutterMat = new THREE.MeshStandardMaterial({
+            color: 0xffaa00,
+            metalness: 0.7,
+            roughness: 0.4,
+            emissive: 0x331100,
+            emissiveIntensity: 0.3,
+          });
+          this.cutter = new THREE.Mesh(cutterGeo, cutterMat);
+          this.cutter.position.y = -15;
+          this.tool.add(this.cutter);
+
+          // Flutes (visual detail)
+          for (let i = 0; i < 2; i++) {
+            const fluteGeo = new THREE.BoxGeometry(0.5, 28, 6);
+            const fluteMat = new THREE.MeshStandardMaterial({
+              color: 0x444444,
+              metalness: 0.9,
+              roughness: 0.3,
+            });
+            const flute = new THREE.Mesh(fluteGeo, fluteMat);
+            flute.position.y = -15;
+            flute.rotation.y = i * Math.PI;
+            flute.position.x = Math.cos(i * Math.PI) * 2.8;
+            flute.position.z = Math.sin(i * Math.PI) * 2.8;
+            this.tool.add(flute);
+          }
+
+          this.tool.visible = false;
+          this.scene.add(this.tool);
+        }
+
+        setupChips() {
+          // Particle system for chips
+          const chipGeo = new THREE.BufferGeometry();
+          const positions = new Float32Array(500 * 3);
+          const colors = new Float32Array(500 * 3);
+          const sizes = new Float32Array(500);
+
+          for (let i = 0; i < 500; i++) {
+            positions[i * 3] = 0;
+            positions[i * 3 + 1] = -10000;
+            positions[i * 3 + 2] = 0;
+            colors[i * 3] = 0.8;
+            colors[i * 3 + 1] = 0.6;
+            colors[i * 3 + 2] = 0.3;
+            sizes[i] = 2;
+          }
+
+          chipGeo.setAttribute(
+            "position",
+            new THREE.BufferAttribute(positions, 3),
+          );
+          chipGeo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+          chipGeo.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
+
+          const chipMat = new THREE.PointsMaterial({
+            size: 3,
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.8,
+            sizeAttenuation: true,
+          });
+
+          this.chips = new THREE.Points(chipGeo, chipMat);
+          this.chips.visible = false;
+          this.scene.add(this.chips);
+
+          // Initialize chip particles
+          for (let i = 0; i < 500; i++) {
+            this.chipParticles.push({
+              active: false,
+              life: 0,
+              velocity: new THREE.Vector3(),
+              position: new THREE.Vector3(0, -10000, 0),
+            });
+          }
+        }
+
+        setupInteraction() {
+          this.raycaster = new THREE.Raycaster();
+          this.mouse = new THREE.Vector2();
+
+          this.renderer.domElement.addEventListener("click", (e) => {
+            if (this.transformControls.dragging) return;
+
+            this.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+            this.raycaster.setFromCamera(this.mouse, this.camera);
+
+            const meshes = Array.from(this.partMeshes.values());
+            const intersects = this.raycaster.intersectObjects(meshes, true);
+
+            if (intersects.length > 0) {
+              let obj = intersects[0].object;
+              while (obj.parent && !this.partMeshes.has(obj.userData.partId)) {
+                obj = obj.parent;
+              }
+              if (obj.userData.partId) {
+                this.selectPart(obj.userData.partId);
+              }
+            }
+          });
+        }
+
+        // ==========================================================================
+        // G-CODE LOADING
+        // ==========================================================================
+
+        loadGCode(code) {
+          // Clear existing
+          this.clearParts();
+
+          // Parse
+          const result = this.parser.parse(code);
+
+          // Update status
+          document.getElementById("statusParts").textContent =
+            result.parts.length;
+          document.getElementById("statusOps").textContent =
+            result.operations.length;
+          document.getElementById("partCount").textContent =
+            result.parts.length;
+
+          this.simulation.operations = result.operations;
+          this.simulation.totalTime = result.totalTime;
+
+          // Create visual representation for each part
+          let partIndex = 0;
+          const partColors = [
+            0x00d4ff, 0x00ff88, 0xffb700, 0xff5252, 0xa855f7, 0xec4899,
+            0x14b8a6, 0xf97316, 0x6366f1, 0x84cc16,
+          ];
+
+          for (const part of result.parts) {
+            if (part.ops.length === 0) continue;
+
+            const group = new THREE.Group();
+            group.userData.partId = part.id;
+            group.userData.partName = part.name;
+
+            const color = partColors[partIndex % partColors.length];
+
+            // Separate operations by type
+            const rapids = [];
+            const cuts = [];
+            const drills = [];
+
+            for (const op of part.ops) {
+              if (op.type === "rapid") {
+                op.kind = "rapid";
+                rapids.push(op);
+              } else if (op.type === "cut") {
+                // Detect drill operations (plunge only)
+                const dx = op.to.x - op.from.x;
+                const dy = op.to.y - op.from.y;
+                const horizontal = Math.sqrt(dx * dx + dy * dy);
+                if (horizontal < 0.1 && op.from.z > op.to.z) {
+                  op.kind = "drill";
+                  drills.push(op);
+                } else {
+                  op.kind = "cut";
+                  cuts.push(op);
+                }
+              }
+            }
+
+            // Create geometries
+            if (rapids.length > 0) {
+              const rapidMesh = this.createPathMesh(rapids, color, 0.2);
+              rapidMesh.userData.opType = "rapid";
+              group.add(rapidMesh);
+            }
+
+            if (cuts.length > 0) {
+              const cutMesh = this.createPathMesh(cuts, color, 1.0);
+              cutMesh.userData.opType = "cut";
+              group.add(cutMesh);
+            }
+
+            if (drills.length > 0) {
+              const drillMesh = this.createDrillMesh(drills, color);
+              drillMesh.userData.opType = "drill";
+              group.add(drillMesh);
+            }
+
+            // Invisible hit-test mesh (bounding box)
+            if (part.bounds) {
+              const bbox = new THREE.Box3(
+                new THREE.Vector3(
+                  part.bounds.min.x,
+                  part.bounds.min.z,
+                  -part.bounds.min.y,
+                ),
+                new THREE.Vector3(
+                  part.bounds.max.x,
+                  part.bounds.max.z,
+                  -part.bounds.max.y,
+                ),
+              );
+              const size = new THREE.Vector3();
+              bbox.getSize(size);
+              const hitGeo = new THREE.BoxGeometry(
+                size.x + 10,
+                size.z + 10,
+                size.y + 10,
+              );
+              const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+              const hitMesh = new THREE.Mesh(hitGeo, hitMat);
+              const center = new THREE.Vector3();
+              bbox.getCenter(center);
+              hitMesh.position.copy(center);
+              hitMesh.userData.partId = part.id;
+              group.add(hitMesh);
+              this.partMeshes.set(part.id, hitMesh);
+            }
+
+            // Position in scene (G-code Y is up, Three.js Y is up)
+            // G-code: X right, Y into material (depth), Z up
+            // We map: GCode X → Three X, GCode Y → Three -Z, GCode Z → Three Y
+            // Every program machines at its own origin, so unplaced parts would all
+            // stack at (0,0,0); layoutSheets() below nests each part onto a plywood
+            // sheet and re-positions the groups before anything is shown.
+            this.scene.add(group);
+
+            this.parts.set(part.id, {
+              group,
+              ops: part.ops,
+              bounds: part.bounds,
+              name: part.name,
+              color,
+              visible: true,
+              placement: null,
+              cutMesh: cuts.length
+                ? group.children.find((c) => c.userData.opType === "cut")
+                : null,
+              rapidMesh: rapids.length
+                ? group.children.find((c) => c.userData.opType === "rapid")
+                : null,
+              drillMesh: drills.length
+                ? group.children.find((c) => c.userData.opType === "drill")
+                : null,
+              counts: {
+                cut: cuts.length,
+                rapid: rapids.length,
+                drill: drills.length,
+              },
+            });
+
+            // Store original position for assembly
+            this.assembly.originalPositions.set(
+              part.id,
+              group.position.clone(),
+            );
+
+            // Add to parts list UI
+            this.addPartToList(part.id, part.name, color, part.ops.length);
+
+            partIndex++;
+          }
+
+          // Nest parts onto plywood sheets (by thickness), then re-position groups
+          this.layoutSheets();
+
+          // Fit workpiece to bounds
+          this.fitWorkpiece();
+
+          // Frame the view
+          this.frameAll();
+
+          // Setup simulation timeline
+          this.updateTimeline();
+
+          document.getElementById("statusState").textContent = "LOADED";
+        }
+
+        createPathMesh(ops, color, opacity) {
+          const positions = [];
+
+          for (const op of ops) {
+            positions.push(op.from.x, op.from.z, -op.from.y);
+            positions.push(op.to.x, op.to.z, -op.to.y);
+          }
+
+          const geo = new THREE.BufferGeometry();
+          geo.setAttribute(
+            "position",
+            new THREE.Float32BufferAttribute(positions, 3),
+          );
+
+          const mat = new THREE.LineBasicMaterial({
+            color: color,
+            transparent: true,
+            opacity: opacity,
+            linewidth: 1,
+          });
+
+          return new THREE.LineSegments(geo, mat);
+        }
+
+        createDrillMesh(ops, color) {
+          const group = new THREE.Group();
+
+          for (const op of ops) {
+            const x = op.from.x;
+            const z = -op.from.y;
+            const topY = op.from.z;
+            const bottomY = op.to.z;
+
+            // Drill cylinder
+            const height = topY - bottomY;
+            if (height <= 0) continue;
+
+            const cylGeo = new THREE.CylinderGeometry(2.5, 2.5, height, 8);
+            const cylMat = new THREE.MeshStandardMaterial({
+              color: color,
+              transparent: true,
+              opacity: 0.8,
+              emissive: color,
+              emissiveIntensity: 0.3,
+            });
+            const cyl = new THREE.Mesh(cylGeo, cylMat);
+            cyl.position.set(x, topY - height / 2, z);
+            group.add(cyl);
+
+            // Point at bottom
+            const coneGeo = new THREE.ConeGeometry(2.5, 5, 8);
+            const cone = new THREE.Mesh(coneGeo, cylMat);
+            cone.position.set(x, bottomY - 2.5, z);
+            cone.rotation.x = Math.PI;
+            group.add(cone);
+          }
+
+          return group;
+        }
+
+        fitWorkpiece() {
+          // With sheet nesting the plywood sheets ARE the material; the legacy
+          // workpiece block only applies to single-program loads with no sheets.
+          if (
+            (this.sheetMeshes && this.sheetMeshes.length) ||
+            this.parts.size === 0
+          ) {
+            this.workpiece.visible = false;
+            return;
+          }
+          const box = new THREE.Box3();
+          for (const [, part] of this.parts) {
+            if (part.group) box.expandByObject(part.group);
+          }
+          if (box.isEmpty()) {
+            this.workpiece.visible = false;
+            return;
+          }
+          const size = new THREE.Vector3();
+          const center = new THREE.Vector3();
+          box.getSize(size);
+          box.getCenter(center);
+          const padding = 20;
+          const height = Math.max(size.y, 19); // At least 3/4" material
+          this.workpiece.scale.set(
+            size.x + padding * 2,
+            height,
+            size.z + padding * 2,
+          );
+          this.workpiece.position.set(center.x, height / 2, center.z);
+          this.workpiece.visible =
+            document.getElementById("showMaterial").checked;
+        }
+
+        frameAll() {
+          // Frame the world-space layout (parts carry their sheet placement offsets)
+          const box = new THREE.Box3();
+          for (const [, part] of this.parts) {
+            if (part.group) box.expandByObject(part.group);
+          }
+
+          if (box.isEmpty()) return;
+
+          const center = new THREE.Vector3();
+          const size = new THREE.Vector3();
+          box.getCenter(center);
+          box.getSize(size);
+
+          const maxDim = Math.max(size.x, size.y, size.z);
+          const distance = maxDim * 2;
+
+          this.camera.position.set(
+            center.x + distance * 0.7,
+            center.y + distance * 0.7,
+            center.z + distance * 0.7,
+          );
+          this.orbitControls.target.copy(center);
+          this.orbitControls.update();
+        }
+
+        clearParts() {
+          for (const [id, part] of this.parts) {
+            this.scene.remove(part.group);
+            part.group.traverse((obj) => {
+              if (obj.geometry) obj.geometry.dispose();
+              if (obj.material) {
+                if (Array.isArray(obj.material)) {
+                  obj.material.forEach((m) => m.dispose());
+                } else {
+                  obj.material.dispose();
+                }
+              }
+            });
+          }
+          this.parts.clear();
+          this.partMeshes.clear();
+          if (this.sheetMeshes) {
+            for (const s of this.sheetMeshes) {
+              this.scene.remove(s);
+              s.geometry.dispose();
+              s.material.dispose();
+              s.children.forEach((c) => {
+                if (c.geometry) c.geometry.dispose();
+                if (c.material) c.material.dispose();
+              });
+            }
+            this.sheetMeshes = [];
+          }
+          this.assembly.originalPositions.clear();
+          this.assembly.assembledPositions.clear();
+          document.getElementById("partsList").innerHTML = "";
+          this.transformControls.detach();
+          this.selectedPart = null;
+        }
+
+        // ==========================================================================
+        // PART MANAGEMENT
+        // ==========================================================================
+
+        addPartToList(id, name, color, opCount) {
+          const list = document.getElementById("partsList");
+          const item = document.createElement("div");
+          item.className = "part-item";
+          item.dataset.partId = id;
+
+          const colorHex = "#" + color.toString(16).padStart(6, "0");
+
+          item.innerHTML = `
+      <div class="flex items-center gap-2">
+        <div style="width:10px;height:10px;background:${colorHex};border-radius:2px;"></div>
+        <span>${name}</span>
+      </div>
+      <span style="color:#64748b;font-size:10px;">${opCount} ops</span>
+    `;
+
+          item.addEventListener("click", () => this.selectPart(id));
+          list.appendChild(item);
+        }
+
+        selectPart(id) {
+          // Deselect previous
+          document
+            .querySelectorAll(".part-item")
+            .forEach((el) => el.classList.remove("selected"));
+
+          if (this.selectedPart === id) {
+            // Toggle off
+            this.selectedPart = null;
+            this.transformControls.detach();
+            return;
+          }
+
+          this.selectedPart = id;
+
+          const item = document.querySelector(
+            `.part-item[data-part-id="${id}"]`,
+          );
+          if (item) item.classList.add("selected");
+
+          const part = this.parts.get(id);
+          if (part) {
+            // Attach transform controls to part group
+            this.transformControls.attach(part.group);
+
+            // Highlight
+            this.highlightPart(id, true);
+          }
+        }
+
+        highlightPart(id, highlight) {
+          const part = this.parts.get(id);
+          if (!part) return;
+
+          part.group.traverse((obj) => {
+            if (obj.material && obj.material.color) {
+              if (highlight) {
+                obj.material.emissive =
+                  obj.material.emissive || new THREE.Color();
+                obj.material.emissive.setHex(0x222222);
+                obj.material.emissiveIntensity = 0.5;
+              } else {
+                if (obj.material.emissive) {
+                  obj.material.emissive.setHex(0x000000);
+                  obj.material.emissiveIntensity = 0;
+                }
+              }
+            }
+          });
+        }
+
+        togglePartVisibility(id) {
+          const part = this.parts.get(id);
+          if (!part) return;
+          part.visible = !part.visible;
+          part.group.visible = part.visible;
+
+          const item = document.querySelector(
+            `.part-item[data-part-id="${id}"]`,
+          );
+          if (item) {
+            item.classList.toggle("hidden-part", !part.visible);
+          }
+        }
+
+        showAllParts() {
+          for (const [id, part] of this.parts) {
+            part.visible = true;
+            part.group.visible = true;
+          }
+          document
+            .querySelectorAll(".part-item")
+            .forEach((el) => el.classList.remove("hidden-part"));
+        }
+
+        // ==========================================================================
+        // SHEET NESTING — parts machine at their own origins, so spread them out
+        // flat on plywood sheets (grouped by thickness) like real cut sheets.
+        // ==========================================================================
+
+        layoutSheets() {
+          const SHEET_W = 1219.2,
+            SHEET_L = 2438.4; // 48in x 96in sheets (mm)
+          const SPACING = 12; // 12mm kerf/clearance between parts
+          const SHEET_GAP = 350; // gap between sheets in the scene
+          const THICK_ORDER = [19.05, 6.35, 12.7, 9.5, 15.9]; // 3/4in, 1/4in, 1/2in, 3/8in, 5/8in
+
+          // Bin per material thickness: parts nest on separate sheets (like a real job)
+          const bins = new Map();
+          for (const [id, part] of this.parts) {
+            if (!part.bounds || part.ops.length === 0) continue;
+            // Thickness: prefer the title's trailing dimension (e.g.
+            // "LEFT SIDE - 12.000 X 30.000 X 0.750"), fall back to op Z range
+            const tm = (part.name || "").match(/([\d.]+)\s*$/);
+            const t = tm
+              ? Math.round(parseFloat(tm[1]) * 25.4 * 100) / 100
+              : Math.round((part.bounds.size.z || 19.05) * 100) / 100;
+            if (!bins.has(t)) bins.set(t, []);
+            bins.get(t).push(id);
+          }
+          // Stable pack order: biggest footprint first nests tighter
+          for (const arr of bins.values()) {
+            arr.sort((a, b) => {
+              const ba = this.parts.get(a).bounds,
+                bb = this.parts.get(b).bounds;
+              return bb.size.x * bb.size.y - ba.size.x * ba.size.y;
+            });
+          }
+
+          const thicknesses = [...bins.keys()].sort(
+            (a, b) =>
+              (THICK_ORDER.indexOf(a) + 1 || 99) -
+              (THICK_ORDER.indexOf(b) + 1 || 99),
+          );
+
+          let sheetCount = 0;
+          const sheetMeshes = [];
+
+          for (const t of thicknesses) {
+            const shelfZ = Math.max(t, 2); // sheet top surface (mm)
+            let ox = SPACING,
+              oy = SPACING,
+              rowH = 0;
+            let sheetIndexInBin = 0;
+
+            for (const id of bins.get(t)) {
+              const part = this.parts.get(id);
+              const b = part.bounds;
+              const w = Math.max(b.size.x, 1),
+                l = Math.max(b.size.y, 1);
+
+              // Row wraps → next shelf-sheet in this thickness bin
+              if (ox + w + SPACING > SHEET_W && sheetIndexInBin >= 1) {
+                sheetIndexInBin++;
+                ox = SPACING;
+                oy = SPACING;
+                rowH = 0;
+              } else if (ox + w + SPACING > SHEET_W) {
+                ox = SPACING;
+                oy += rowH + SPACING;
+                rowH = 0;
+                if (oy + l + SPACING > SHEET_L) {
+                  sheetIndexInBin++;
+                  oy = SPACING;
+                }
+              }
+              // Height wrap → next sheet
+              if (oy + l + SPACING > SHEET_L) {
+                sheetIndexInBin++;
+                ox = SPACING;
+                oy = SPACING;
+                rowH = 0;
+              }
+
+              const sx = (sheetCount + sheetIndexInBin) * (SHEET_W + SHEET_GAP); // global sheet X offset
+              const px = sx + ox + w / 2; // part center X on sheet
+              const py = oy + l / 2; // part center Y (gcode Y) on sheet
+              part.placement = {
+                x: px,
+                y: py,
+                z: shelfZ,
+                sheet: sheetCount + sheetIndexInBin,
+              };
+
+              ox += w + SPACING;
+              rowH = Math.max(rowH, l);
+            }
+            const used = sheetIndexInBin + 1;
+
+            // One semi-transparent plywood sheet under each used shelf of this thickness
+            for (let i = 0; i < used; i++) {
+              const sx = (sheetCount + i) * (SHEET_W + SHEET_GAP);
+              const geo = new THREE.BoxGeometry(
+                SHEET_W,
+                Math.max(t, 2),
+                SHEET_L,
+              );
+              const mat = new THREE.MeshStandardMaterial({
+                color: 0xd4a574,
+                roughness: 0.9,
+                metalness: 0.0,
+                transparent: true,
+                opacity: 0.25,
+              });
+              const sheet = new THREE.Mesh(geo, mat);
+              sheet.position.set(
+                sx + SHEET_W / 2,
+                Math.max(t, 2) / 2,
+                -SHEET_L / 2,
+              );
+              const wire = new THREE.LineSegments(
+                new THREE.EdgesGeometry(geo),
+                new THREE.LineBasicMaterial({
+                  color: 0xd4a574,
+                  transparent: true,
+                  opacity: 0.35,
+                }),
+              );
+              sheet.add(wire);
+              sheet.userData.isSheet = true;
+              sheetMeshes.push(sheet);
+              this.scene.add(sheet);
+            }
+            sheetCount += used;
+          }
+          this.sheetMeshes = sheetMeshes;
+
+          // Re-position part groups onto their sheet placements (they were added at
+          // the machining origin during load); these become the explode home too
+          for (const [id, part] of this.parts) {
+            const pl = part.placement;
+            if (pl) {
+              part.group.position.set(pl.x, pl.z, -pl.y);
+              this.assembly.originalPositions.set(
+                id,
+                part.group.position.clone(),
+              );
+            }
+          }
+
+          // Total sheets readout
+          const el = document.getElementById("statusSheets");
+          if (el) el.textContent = sheetMeshes.length;
+        }
+
+        // ==========================================================================
+        // ASSEMBLY
+        // ==========================================================================
+
+        computeAssemblyPositions() {
+          // Compute "assembled" positions for each part
+          // Strategy: move parts so they form the final cabinet
+          // Each part moves to its position relative to the overall assembly center
+
+          if (this.parts.size === 0) return;
+
+          // Find overall center
+          let totalCenter = new THREE.Vector3();
+          let count = 0;
+          for (const [id, part] of this.parts) {
+            if (part.bounds) {
+              totalCenter.add(
+                new THREE.Vector3(
+                  part.bounds.center.x,
+                  part.bounds.center.z,
+                  -part.bounds.center.y,
+                ),
+              );
+              count++;
+            }
+          }
+          if (count > 0) totalCenter.divideScalar(count);
+
+          // Each part's assembled position is where it would be in the final cabinet
+          // For now, keep parts at their original positions (they're already in assembly coords)
+          // The "exploded" view spreads them out
+          for (const [id, part] of this.parts) {
+            if (part.bounds) {
+              const partCenter = new THREE.Vector3(
+                part.bounds.center.x,
+                part.bounds.center.z,
+                -part.bounds.center.y,
+              );
+              this.assembly.assembledPositions.set(id, partCenter);
+            }
+          }
+        }
+
+        setExplodeFactor(factor) {
+          // factor: 0 = assembled, 1 = fully exploded
+          this.assembly.targetFactor = factor;
+
+          if (this.parts.size === 0) return;
+
+          // Compute assembly center
+          let totalCenter = new THREE.Vector3();
+          let count = 0;
+          for (const [id, part] of this.parts) {
+            if (part.bounds) {
+              const c = new THREE.Vector3(
+                part.bounds.center.x,
+                part.bounds.center.z,
+                -part.bounds.center.y,
+              );
+              totalCenter.add(c);
+              count++;
+            }
+          }
+          if (count > 0) totalCenter.divideScalar(count); // Move each part away from center (0 = keep the nested sheet layout,
+          // which IS the assembly we care about in this viewer)
+          for (const [id, part] of this.parts) {
+            if (!part.bounds) continue;
+
+            const partCenter = new THREE.Vector3(
+              part.bounds.center.x,
+              part.bounds.center.z,
+              -part.bounds.center.y,
+            );
+
+            const direction = partCenter.clone().sub(totalCenter);
+            if (direction.length() < 1) {
+              direction.set(0, 1, 0);
+            }
+            direction.normalize();
+
+            const explodeDistance = 200 * factor;
+            const home =
+              this.assembly.originalPositions.get(id) || new THREE.Vector3();
+            const targetPos = home
+              .clone()
+              .add(direction.multiplyScalar(explodeDistance));
+
+            // Smoothly animate
+            part.group.position.lerp(targetPos, 0.15);
+          }
+        }
+
+        assemble() {
+          this.setExplodeFactor(0);
+          document.getElementById("explodeSlider").value = 0;
+          document.getElementById("explodeValue").textContent = "0%";
+          document.getElementById("modeIndicator").textContent = "ASSEMBLED";
+          document.getElementById("modeIndicator").style.background =
+            "rgba(0, 255, 136, 0.2)";
+          document.getElementById("modeIndicator").style.borderColor =
+            "#00ff88";
+          document.getElementById("modeIndicator").style.color = "#00ff88";
+        }
+
+        explode() {
+          this.setExplodeFactor(1);
+          document.getElementById("explodeSlider").value = 100;
+          document.getElementById("explodeValue").textContent = "100%";
+          document.getElementById("modeIndicator").textContent =
+            "EXPLODED VIEW";
+          document.getElementById("modeIndicator").style.background =
+            "rgba(255, 183, 0, 0.2)";
+          document.getElementById("modeIndicator").style.borderColor =
+            "#ffb700";
+          document.getElementById("modeIndicator").style.color = "#ffb700";
+        }
+
+        // ==========================================================================
+        // SIMULATION
+        // ==========================================================================
+
+        playSimulation() {
+          if (this.simulation.operations.length === 0) return;
+
+          this.audio.init();
+          // Starting fresh (or restarting after the end): hide every part; the sim
+          // reveals each one as the tool reaches its sheet placement
+          if (
+            this.simulation.currentTime < 0.001 ||
+            this.simulation.currentTime >= this.simulation.totalTime
+          ) {
+            this.simulation.currentTime = 0;
+            this.simulation.currentOpIndex = 0;
+            for (const [, prt] of this.parts) {
+              prt.revealed = false;
+              prt.group.visible = false;
+              this.applyReveal(prt, 0);
+            }
+          }
+          this.simulation.playing = true;
+          this.simulation.paused = false;
+          this.tool.visible = true;
+          this.chips.visible = document.getElementById("showChips").checked;
+
+          document.getElementById("timeline").classList.add("active");
+          document.getElementById("statusState").textContent = "RUNNING";
+          document.getElementById("modeIndicator").textContent = "SIMULATING";
+          document.getElementById("modeIndicator").style.background =
+            "rgba(0, 255, 136, 0.2)";
+          document.getElementById("modeIndicator").style.borderColor =
+            "#00ff88";
+          document.getElementById("modeIndicator").style.color = "#00ff88";
+        }
+
+        pauseSimulation() {
+          this.simulation.paused = !this.simulation.paused;
+          if (this.simulation.paused) {
+            document.getElementById("statusState").textContent = "PAUSED";
+            this.audio.silence();
+          } else {
+            document.getElementById("statusState").textContent = "RUNNING";
+          }
+        }
+
+        stopSimulation() {
+          this.simulation.playing = false;
+          this.simulation.paused = false;
+          this.simulation.currentTime = 0;
+          this.simulation.currentOpIndex = 0;
+          this.tool.visible = false;
+          this.chips.visible = false;
+          // Static inspection state: show every nested part fully
+          for (const [, prt] of this.parts) {
+            prt.revealed = true;
+            prt.group.visible = prt.visible !== false;
+            this.applyReveal(prt, Infinity);
+          }
+
+          document.getElementById("timeline").classList.remove("active");
+          document.getElementById("statusState").textContent = "STOPPED";
+          document.getElementById("modeIndicator").textContent = "VIEW MODE";
+          document.getElementById("modeIndicator").style.background =
+            "rgba(0, 212, 255, 0.2)";
+          document.getElementById("modeIndicator").style.borderColor =
+            "#00d4ff";
+          document.getElementById("modeIndicator").style.color = "#00d4ff";
+
+          this.audio.silence();
+        }
+
+        updateSimulation(deltaTime) {
+          if (!this.simulation.playing || this.simulation.paused) return;
+          if (this.simulation.currentTime >= this.simulation.totalTime) {
+            this.stopSimulation();
+            return;
+          }
+
+          this.simulation.currentTime += deltaTime * this.simulation.speed;
+
+          // Find current operation
+          const ops = this.simulation.operations;
+          while (
+            this.simulation.currentOpIndex < ops.length &&
+            ops[this.simulation.currentOpIndex].endTime <
+              this.simulation.currentTime
+          ) {
+            this.simulation.currentOpIndex++;
+          }
+
+          if (this.simulation.currentOpIndex >= ops.length) {
+            this.stopSimulation();
+            return;
+          }
+
+          const op = ops[this.simulation.currentOpIndex];
+          if (!op || !op.from || !op.to) return; // pseudo-op (M-code) — nothing to animate
+          const span = op.endTime - op.startTime;
+          const clampedProgress =
+            span > 0
+              ? Math.max(
+                  0,
+                  Math.min(
+                    1,
+                    (this.simulation.currentTime - op.startTime) / span,
+                  ),
+                )
+              : 1;
+
+          // Interpolate tool position — offset by the part's nested sheet placement
+          // so the tool machines each part where it lies on its sheet
+          const part = this.parts.get(op.part);
+          const u =
+            part && part.placement ? part.placement : { x: 0, y: 0, z: 0 };
+          const pos = new THREE.Vector3(
+            u.x + op.from.x + (op.to.x - op.from.x) * clampedProgress,
+            u.z + op.from.z + (op.to.z - op.from.z) * clampedProgress,
+            -u.y + (-op.from.y + (-op.to.y + op.from.y) * clampedProgress),
+          );
+
+          this.tool.position.copy(pos);
+
+          // Progressive reveal: each part's paths draw on as the tool cuts them
+          this.refreshReveal();
+
+          // Rotate tool based on spindle speed
+          if (op.spindle > 0) {
+            this.cutter.rotation.y += op.spindle * 0.0001;
+          }
+
+          // Update audio
+          if (op.type === "cut") {
+            this.audio.setSpindle(op.spindle, true);
+            this.audio.setCutting(0.8, op.feed);
+            this.audio.setRapid(false);
+
+            // Emit chips
+            if (
+              document.getElementById("showChips").checked &&
+              Math.random() < 0.3
+            ) {
+              this.emitChip(pos);
+            }
+          } else if (op.type === "rapid") {
+            this.audio.setSpindle(op.spindle, true);
+            this.audio.setCutting(0, 0);
+            this.audio.setRapid(true);
+          }
+
+          // Update status
+          document.getElementById("statusTool").textContent =
+            `T${String(op.tool).padStart(2, "0")}`;
+          document.getElementById("statusFeed").textContent =
+            `${Math.round(op.feed)} IPM`;
+          document.getElementById("statusSpindle").textContent =
+            `${Math.round(op.spindle)} RPM`;
+          document.getElementById("statusPos").textContent =
+            `X${pos.x.toFixed(3)} Y${(-pos.z).toFixed(3)} Z${pos.y.toFixed(3)}`;
+
+          // Update timeline
+          const progress =
+            (this.simulation.currentTime / this.simulation.totalTime) * 100;
+          document.getElementById("tlFill").style.width = `${progress}%`;
+          document.getElementById("tlCurrent").textContent = this.formatTime(
+            this.simulation.currentTime,
+          );
+        }
+
+        emitChip(position) {
+          // Find inactive particle
+          for (const p of this.chipParticles) {
+            if (!p.active) {
+              p.active = true;
+              p.life = 1.0;
+              p.position.copy(position);
+              p.velocity.set(
+                (Math.random() - 0.5) * 100,
+                Math.random() * 80 + 20,
+                (Math.random() - 0.5) * 100,
+              );
+              break;
+            }
+          }
+        }
+
+        updateChips(deltaTime) {
+          if (!this.chips.visible) return;
+
+          const positions = this.chips.geometry.attributes.position.array;
+          let activeCount = 0;
+
+          for (let i = 0; i < this.chipParticles.length; i++) {
+            const p = this.chipParticles[i];
+            if (p.active) {
+              p.life -= deltaTime * 1.5;
+              if (p.life <= 0) {
+                p.active = false;
+                positions[i * 3 + 1] = -10000;
+              } else {
+                p.velocity.y -= 200 * deltaTime; // gravity
+                p.position.add(p.velocity.clone().multiplyScalar(deltaTime));
+                positions[i * 3] = p.position.x;
+                positions[i * 3 + 1] = p.position.y;
+                positions[i * 3 + 2] = p.position.z;
+                activeCount++;
+              }
+            }
+          }
+
+          this.chips.geometry.attributes.position.needsUpdate = true;
+        }
+
+        /** Show a part's ops up to `time` (Infinity = all, 0 = none). */
+        applyReveal(part, time) {
+          if (!part.counts) return;
+          const full = time === Infinity;
+          let cutDone = full ? part.counts.cut : 0;
+          let rapidDone = full ? part.counts.rapid : 0;
+          let drillDone = full ? part.counts.drill : 0;
+          if (!full) {
+            for (const o of part.ops) {
+              if (o.endTime <= time) {
+                if (o.kind === "cut") cutDone++;
+                else if (o.kind === "rapid") rapidDone++;
+                else if (o.kind === "drill") drillDone++;
+              }
+            }
+          }
+          if (part.cutMesh)
+            part.cutMesh.geometry.setDrawRange(
+              0,
+              full ? Infinity : cutDone * 2,
+            );
+          if (part.rapidMesh)
+            part.rapidMesh.geometry.setDrawRange(
+              0,
+              full ? Infinity : rapidDone * 2,
+            );
+          if (part.drillMesh) {
+            const kids = part.drillMesh.children;
+            for (let i = 0; i < kids.length; i++)
+              kids[i].visible = full || i < drillDone * 2;
+          }
+        }
+
+        /** Reconcile part visibility/reveal with the current simulation time. */
+        refreshReveal() {
+          const ops = this.simulation.operations;
+          if (!ops.length) return;
+          const op =
+            ops[Math.min(this.simulation.currentOpIndex, ops.length - 1)];
+          for (const [pid, prt] of this.parts) {
+            if (!prt.ops || !prt.ops.length) continue;
+            if (pid === op.part) {
+              prt.group.visible = true;
+              this.applyReveal(prt, this.simulation.currentTime);
+            } else if (
+              prt.ops[prt.ops.length - 1].endTime <= this.simulation.currentTime
+            ) {
+              prt.group.visible = prt.visible !== false;
+              this.applyReveal(prt, Infinity);
+            } else {
+              prt.group.visible = false;
+              this.applyReveal(prt, 0);
+            }
+          }
+        }
+
+        formatTime(seconds) {
+          const m = Math.floor(seconds / 60);
+          const s = Math.floor(seconds % 60);
+          return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+        }
+
+        updateTimeline() {
+          document.getElementById("tlTotal").textContent = this.formatTime(
+            this.simulation.totalTime,
+          );
+          document.getElementById("tlCurrent").textContent = "00:00";
+          document.getElementById("tlFill").style.width = "0%";
+        }
+
+        // ==========================================================================
+        // RENDER LOOP
+        // ==========================================================================
+
+        animate() {
+          requestAnimationFrame(() => this.animate());
+
+          const deltaTime = 1 / 60;
+
+          this.orbitControls.update();
+
+          // Update simulation
+          if (this.simulation.playing) {
+            this.updateSimulation(deltaTime);
+            this.updateChips(deltaTime);
+          }
+
+          // Smooth assembly animation
+          if (
+            Math.abs(this.assembly.explodeFactor - this.assembly.targetFactor) >
+            0.001
+          ) {
+            this.assembly.explodeFactor +=
+              (this.assembly.targetFactor - this.assembly.explodeFactor) * 0.1;
+          }
+
+          this.renderer.render(this.scene, this.camera);
+        }
+
+        onResize() {
+          this.camera.aspect = window.innerWidth / window.innerHeight;
+          this.camera.updateProjectionMatrix();
+          this.renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // ==========================================================================
+        // VISUALIZATION CONTROLS
+        // ==========================================================================
+
+        setRapidOpacity(value) {
+          for (const [id, part] of this.parts) {
+            part.group.traverse((obj) => {
+              if (obj.userData.opType === "rapid" && obj.material) {
+                obj.material.opacity = value;
+              }
+            });
+          }
+        }
+
+        setCutOpacity(value) {
+          for (const [id, part] of this.parts) {
+            part.group.traverse((obj) => {
+              if (obj.userData.opType === "cut" && obj.material) {
+                obj.material.opacity = value;
+              }
+            });
+          }
+        }
+
+        setDrillOpacity(value) {
+          for (const [id, part] of this.parts) {
+            part.group.traverse((obj) => {
+              if (obj.userData.opType === "drill") {
+                obj.traverse((child) => {
+                  if (child.material) child.material.opacity = value;
+                });
+              }
+            });
+          }
+        }
+
+        setTransformMode(mode) {
+          this.transformControls.setMode(mode);
+          document
+            .getElementById("modeTranslate")
+            .classList.toggle("btn-success", mode === "translate");
+          document
+            .getElementById("modeRotate")
+            .classList.toggle("btn-success", mode === "rotate");
+          document
+            .getElementById("modeScale")
+            .classList.toggle("btn-success", mode === "scale");
+        }
+      }
+
+      // ============================================================================
+      // INITIALIZATION
+      // ============================================================================
+      const viewer = new CNCViewer();
+
+      // Sample G-Code (Young and Associates catalog — wall cabinet sides) — fallback only,
+      // the live catalog loads from gcode-data.js below.
+      const SAMPLE_GCODE = `%
+
+(EURO 32MM WALL CABINET LIBRARY)
+(===== WALL-18W-30H =====)
+
+%
+O2001 (LEFT SIDE - 12.000 X 30.000 X 0.750)
+G90 G17 G20 G40 G49 G80
+G54
+G00 Z1.0
+
+(--- OUTLINE ---)
+T01 M06
+G43 H01 Z0.5
+S12000 M03
+G01 F800
+G00 X0 Y0
+G42 D01
+G01 Z-0.750 F400
+G01 X12.000 F800
+G01 Y30.000
+G01 X0
+G01 Y0
+G40
+G00 Z1.0
+M05
+
+(--- 5MM SHELF PINS ---)
+T07 M06
+G43 H07 Z0.5
+S8000 M03
+G01 F250
+G00 X1.457 Y1.457
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X1.457 Y2.717
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X1.457 Y3.976
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X1.457 Y5.236
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X1.457 Y6.496
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X1.457 Y7.756
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X1.457 Y9.016
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X1.457 Y10.276
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X1.457 Y11.535
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X1.457 Y12.795
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X1.457 Y14.055
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X1.457 Y15.315
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X1.457 Y16.575
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X1.457 Y17.835
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X1.457 Y19.094
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X1.457 Y20.354
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X1.457 Y21.614
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X1.457 Y22.874
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X1.457 Y24.134
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X1.457 Y25.394
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X1.457 Y26.654
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X1.457 Y27.913
+G01 Z-0.750 F150
+G00 Z1.0
+(--- COLUMN 2 ---)
+G00 X10.543 Y1.457
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X10.543 Y2.717
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X10.543 Y3.976
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X10.543 Y5.236
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X10.543 Y6.496
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X10.543 Y7.756
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X10.543 Y9.016
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X10.543 Y10.276
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X10.543 Y11.535
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X10.543 Y12.795
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X10.543 Y14.055
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X10.543 Y15.315
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X10.543 Y16.575
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X10.543 Y17.835
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X10.543 Y19.094
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X10.543 Y20.354
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X10.543 Y21.614
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X10.543 Y22.874
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X10.543 Y24.134
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X10.543 Y25.394
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X10.543 Y26.654
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X10.543 Y27.913
+G01 Z-0.750 F150
+G00 Z1.0
+M05
+
+(--- EDGE BREAK ---)
+T06 M06
+G43 H06 Z0.5
+S10000 M03
+G01 F600
+G00 X0 Y0
+G42 D06
+G01 Z-0.030 F300
+G01 X12.000 F600
+G01 Y30.000
+G01 X0
+G01 Y0
+G40
+G00 Z1.0
+M05
+
+M30
+%
+
+%
+O2002 (RIGHT SIDE - 12.000 X 30.000 X 0.750)
+G90 G17 G20 G40 G49 G80
+G54
+G00 Z1.0
+T01 M06
+G43 H01 Z0.5
+S12000 M03
+G01 F800
+G00 X0 Y0
+G42 D01
+G01 Z-0.750 F400
+G01 X12.000 F800
+G01 Y30.000
+G01 X0
+G01 Y0
+G40
+G00 Z1.0
+M05
+T07 M06
+G43 H07 Z0.5
+S8000 M03
+G01 F250
+G00 X1.457 Y1.457
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X1.457 Y14.055
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X1.457 Y27.913
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X10.543 Y1.457
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X10.543 Y14.055
+G01 Z-0.750 F150
+G00 Z1.0
+G00 X10.543 Y27.913
+G01 Z-0.750 F150
+G00 Z1.0
+M05
+M30
+%
+
+%
+O2003 (TOP - 16.500 X 12.000 X 0.750)
+G90 G17 G20 G40 G49 G80
+G54
+G00 Z1.0
+T01 M06
+G43 H01 Z0.5
+S12000 M03
+G01 F800
+G00 X0 Y0
+G42 D01
+G01 Z-0.750 F400
+G01 X16.500 F800
+G01 Y12.000
+G01 X0
+G01 Y0
+G40
+G00 Z1.0
+M05
+M30
+%
+
+%
+O2004 (BOTTOM - 16.500 X 12.000 X 0.750)
+G90 G17 G20 G40 G49 G80
+G54
+G00 Z1.0
+T01 M06
+G43 H01 Z0.5
+S12000 M03
+G01 F800
+G00 X0 Y0
+G42 D01
+G01 Z-0.750 F400
+G01 X16.500 F800
+G01 Y12.000
+G01 X0
+G01 Y0
+G40
+G00 Z1.0
+M05
+M30
+%
+
+%
+O2005 (BACK PANEL - 17.250 X 29.250 X 0.250)
+G90 G17 G20 G40 G49 G80
+G54
+G00 Z1.0
+T01 M06
+G43 H01 Z0.5
+S12000 M03
+G01 F800
+G00 X0 Y0
+G42 D01
+G01 Z-0.250 F400
+G01 X17.250 F800
+G01 Y29.250
+G01 X0
+G01 Y0
+G40
+G00 Z1.0
+M05
+M30
+%
+
+%
+O2006 (SHELF 1 - 16.375 X 11.250 X 0.750)
+G90 G17 G20 G40 G49 G80
+G54
+G00 Z1.0
+T01 M06
+G43 H01 Z0.5
+S12000 M03
+G01 F800
+G00 X0 Y0
+G42 D01
+G01 Z-0.750 F400
+G01 X16.375 F800
+G01 Y11.250
+G01 X0
+G01 Y0
+G40
+G00 Z1.0
+M05
+M30
+%
+
+%
+O2007 (SHELF 2 - 16.375 X 11.250 X 0.750)
+G90 G17 G20 G40 G49 G80
+G54
+G00 Z1.0
+T01 M06
+G43 H01 Z0.5
+S12000 M03
+G01 F800
+G00 X0 Y0
+G42 D01
+G01 Z-0.750 F400
+G01 X16.375 F800
+G01 Y11.250
+G01 X0
+G01 Y0
+G40
+G00 Z1.0
+M05
+M30
+%
+
+%
+O2008 (DOOR - 17.875 X 29.625 X 0.750)
+G90 G17 G20 G40 G49 G80
+G54
+G00 Z1.0
+T01 M06
+G43 H01 Z0.5
+S12000 M03
+G01 F800
+G00 X0 Y0
+G42 D01
+G01 Z-0.750 F400
+G01 X17.875 F800
+G01 Y29.625
+G01 X0
+G01 Y0
+G40
+G00 Z1.0
+M05
+
+(--- SHAKER RECESS ---)
+T05 M06
+G43 H05 Z0.5
+S10000 M03
+G01 F500
+G00 X1.5 Y1.5
+G01 Z-0.25 F250
+G01 X16.375 F500
+G01 Y28.125
+G01 X1.5
+G01 Y1.5
+G00 Z1.0
+M05
+
+(--- HINGE CUPS ---)
+T03 M06
+G43 H03 Z0.5
+S8000 M03
+G01 F180
+G00 X0.750 Y28.247
+G01 Z-0.512 F150
+G00 Z1.0
+G00 X0.750 Y1.378
+G01 Z-0.512 F150
+G00 Z1.0
+M05
+M30
+%`;
+
+      // Load sample on startup only if the catalog data file is absent
+      setTimeout(() => {
+        if (!window.GCODE_DATA) {
+          viewer.loadGCode(SAMPLE_GCODE);
+          document.getElementById("loading").classList.add("hidden");
+        }
+      }, 500);
+
+      // ============================================================================
+      // UI EVENT HANDLERS
+      // ============================================================================
+
+      // Load G-Code file
+      document.getElementById("btnLoad").addEventListener("click", () => {
+        document.getElementById("fileInput").click();
+      });
+
+      document.getElementById("fileInput").addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          viewer.loadGCode(event.target.result);
+          document.getElementById("loading").classList.add("hidden");
+        };
+        reader.readAsText(file);
+      });
+
+      // ============================================================================
+      // GRAIN PLAN HANDOFF (from workbook Grain Matching Lab — localStorage)
+      // ============================================================================
+      const grainPanel = document.getElementById("grainPlanPanel");
+      const grainSheetsEl = document.getElementById("grainSheets");
+      let grainPlan = null;
+      let grainColored = false;
+      let grainMirrorShown = false;
+
+      // plane label -> keywords found in generator part titles (e.g. "LEFT SIDE - 23.250 X ...")
+      const GRAIN_PLANE_KEYS = {
+        "DOOR-FRONT": ["DOOR"],
+        "RT-SIDE": ["RIGHT SIDE", "RT SIDE"],
+        "LEFT-SIDE": ["LEFT SIDE"],
+        BACK: ["BACK"],
+        TOP: ["TOP"],
+        BOTTOM: ["BOTTOM"],
+        "FIXED-SHELF": ["FIXED SHELF"],
+        CARCASS: ["SIDE", "TOP", "BOTTOM", "BACK"],
+      };
+      const GRAIN_TEX_COLORS = {
+        "tx-oak": 0xc99b62,
+        "tx-maple": 0xe0c9a0,
+        "tx-walnut": 0x6b4c34,
+        "tx-rift": 0xd0b48c,
+        "tx-burl": 0x9c7a55,
+        "tx-plain": 0xdad4c8,
+      };
+
+      function grainColorGroup(group, hex) {
+        group.traverse((o) => {
+          if (o.material) {
+            if (o.material.color) o.material.color.setHex(hex);
+            if (o.material.emissive && o.material.emissive.setHex)
+              o.material.emissive.setHex(0x1a1a10);
+          }
+        });
+      }
+
+      function applyGrainColors() {
+        if (!grainPlan) return;
+        // distinct textures -> stable palette entries (plain first)
+        const texes = [
+          ...new Set(
+            grainPlan.sheets.flatMap((sh) => sh.items.map((it) => it.tex)),
+          ),
+        ];
+        const texColor = {};
+        texes.forEach((t, i) => {
+          texColor[t] =
+            GRAIN_TEX_COLORS[t] ||
+            [0xdad4c8, 0x9fb8a8, 0xc7a8c0, 0xa8b8d0, 0xd0c090, 0x90c0b8][i % 6];
+        });
+        // plan items grouped by plane, consumed in order so repeated parts rotate through placements
+        const byPlane = new Map();
+        grainPlan.sheets.forEach((sh) =>
+          sh.items.forEach((it) => {
+            if (!byPlane.has(it.part)) byPlane.set(it.part, []);
+            byPlane.get(it.part).push(it);
+          }),
+        );
+        let matched = 0;
+        viewer.parts.forEach((rec) => {
+          const nm = (rec.name || "").toUpperCase();
+          let texHit = null;
+          for (const [plane, kws] of Object.entries(GRAIN_PLANE_KEYS)) {
+            if (!kws.some((k) => nm.includes(k))) continue;
+            // prefer the exact plane bucket, fall back to CARCASS bucket
+            const items = byPlane.get(plane) || byPlane.get("CARCASS") || [];
+            if (items.length) {
+              const it = items.shift();
+              texHit = it.tex;
+              rec.grainMirror = !!it.mirror;
+              matched++;
+            }
+            break;
+          }
+          if (texHit) grainColorGroup(rec.group, texColor[texHit]);
+        });
+        grainColored = true;
+        document.getElementById("btnGrainColor").textContent =
+          "🎨 Textured " + matched + " parts";
+      }
+
+      function showGrainMirror() {
+        if (!grainPlan) return;
+        grainMirrorShown = !grainMirrorShown;
+        const rows = document.querySelectorAll("#partsList .part-item");
+        rows.forEach((r) => {
+          const id = r.dataset && r.dataset.partId;
+          const rec = id && viewer.parts.get(id);
+          const isMirror = grainMirrorShown && rec && rec.grainMirror;
+          r.style.borderLeftColor = isMirror ? "#ffb700" : "";
+        });
+        document.getElementById("btnGrainMirror").textContent = grainMirrorShown
+          ? "⇄ Mirror flags ON"
+          : "⇄ Toggle mirror flags (A/B)";
+      }
+
+      let grainPlanMounted = false;
+      function tryMountGrainPlan() {
+        if (grainPlanMounted) return;
+        let plan = null;
+        try {
+          const raw = localStorage.getItem("ya-grain-plan");
+          if (!raw) return;
+          plan = JSON.parse(raw);
+        } catch (err) {
+          return;
+        }
+        if (!plan || !plan.sheets) return;
+        grainPlan = plan;
+        grainPlanMounted = true;
+        grainPanel.style.display = "block";
+        document.getElementById("grainStrategy").textContent =
+          "— " + (grainPlan.strategy || "").toUpperCase();
+        grainSheetsEl.innerHTML = grainPlan.sheets
+          .map(
+            (sh) =>
+              "<div>Sheet " +
+              sh.n +
+              " — " +
+              sh.mat +
+              " " +
+              sh.w +
+              "×" +
+              sh.l +
+              (sh.invId ? " (" + sh.invId + ")" : "") +
+              " — " +
+              sh.items.length +
+              " parts</div>",
+          )
+          .join("");
+        document
+          .getElementById("btnGrainColor")
+          .addEventListener("click", applyGrainColors);
+        document
+          .getElementById("btnGrainMirror")
+          .addEventListener("click", showGrainMirror);
+      }
+      tryMountGrainPlan(); // plan may already be stored (workbook handoff)
+      window.addEventListener("load", tryMountGrainPlan); // same-page seeds run before load
+      window.addEventListener("storage", function (e) {
+        if (e.key === "ya-grain-plan") {
+          grainPlanMounted = false;
+          tryMountGrainPlan();
+        }
+      }); // live sync when the workbook sends a plan in another tab
+
+      // ============================================================================
+      // YOUNG AND ASSOCIATES CATALOG LOADER (docs/gcode-data.js)
+      // ============================================================================
+      (function setupCatalog() {
+        const select = document.getElementById("skuSelect");
+        const data = window.GCODE_DATA;
+        if (!data || !select) return;
+
+        // Populate SKU dropdown from manifests
+        const skus = Object.keys(data.skus).sort();
+        for (const sku of skus) {
+          const opt = document.createElement("option");
+          opt.value = sku;
+          opt.textContent = sku;
+          select.appendChild(opt);
+        }
+
+        function loadSku(sku) {
+          const manifest = data.skus[sku];
+          if (!manifest) return;
+          // Concatenate every distinct program's gcode in manifest order
+          const codes = [...new Set(manifest.map((r) => r.code))].filter(
+            (c) => c !== "—",
+          );
+          const combined = codes
+            .map((c) => (data.programs[c] ? data.programs[c].gcode : ""))
+            .join("\n\n");
+          select.value = sku;
+          viewer.loadGCode(combined);
+          document.getElementById("statusState").textContent = "SKU " + sku;
+          document.getElementById("loading").classList.add("hidden");
+          try {
+            history.replaceState(null, "", "#" + encodeURIComponent(sku));
+          } catch (err) {}
+        }
+
+        document
+          .getElementById("btnLoadSku")
+          .addEventListener("click", () => loadSku(select.value));
+
+        // Deep link: gg.html#SKU
+        const initial = decodeURIComponent(
+          (location.hash || "").replace(/^#/, ""),
+        );
+        if (skus.includes(initial)) {
+          loadSku(initial);
+        } else if (skus.length) {
+          loadSku(skus[0]);
+        }
+      })();
+
+      // Reset view
+      document.getElementById("btnReset").addEventListener("click", () => {
+        viewer.frameAll();
+      });
+
+      // Sound toggle
+      document.getElementById("btnSound").addEventListener("click", (e) => {
+        const enabled = viewer.audio.toggle();
+        e.target.textContent = enabled ? "🔊 Sound: ON" : "🔇 Sound: OFF";
+      });
+
+      // Show all parts
+      document.getElementById("btnShowAll").addEventListener("click", () => {
+        viewer.showAllParts();
+      });
+
+      // Assembly controls
+      document.getElementById("btnAssemble").addEventListener("click", () => {
+        viewer.assemble();
+      });
+
+      document.getElementById("btnExplode").addEventListener("click", () => {
+        viewer.explode();
+      });
+
+      document
+        .getElementById("explodeSlider")
+        .addEventListener("input", (e) => {
+          const value = parseInt(e.target.value) / 100;
+          viewer.setExplodeFactor(value);
+          document.getElementById("explodeValue").textContent =
+            `${e.target.value}%`;
+        });
+
+      // Transform modes
+      document.getElementById("modeTranslate").addEventListener("click", () => {
+        viewer.setTransformMode("translate");
+      });
+      document.getElementById("modeRotate").addEventListener("click", () => {
+        viewer.setTransformMode("rotate");
+      });
+      document.getElementById("modeScale").addEventListener("click", () => {
+        viewer.setTransformMode("scale");
+      });
+
+      // Simulation controls
+      document.getElementById("btnPlay").addEventListener("click", () => {
+        viewer.playSimulation();
+      });
+      document.getElementById("btnPause").addEventListener("click", () => {
+        viewer.pauseSimulation();
+      });
+      document.getElementById("btnStop").addEventListener("click", () => {
+        viewer.stopSimulation();
+      });
+
+      document.getElementById("simSpeed").addEventListener("input", (e) => {
+        viewer.simulation.speed = parseInt(e.target.value);
+        document.getElementById("simSpeedValue").textContent =
+          `${e.target.value}x`;
+      });
+
+      document.getElementById("toolSize").addEventListener("input", (e) => {
+        const size = parseInt(e.target.value);
+        viewer.tool.scale.set(size / 5, size / 5, size / 5);
+        document.getElementById("toolSizeValue").textContent = `${size}mm`;
+      });
+
+      // Visualization controls
+      document.getElementById("rapidOpacity").addEventListener("input", (e) => {
+        viewer.setRapidOpacity(parseInt(e.target.value) / 100);
+        document.getElementById("rapidOpacityValue").textContent =
+          `${e.target.value}%`;
+      });
+
+      document.getElementById("cutOpacity").addEventListener("input", (e) => {
+        viewer.setCutOpacity(parseInt(e.target.value) / 100);
+        document.getElementById("cutOpacityValue").textContent =
+          `${e.target.value}%`;
+      });
+
+      document.getElementById("drillOpacity").addEventListener("input", (e) => {
+        viewer.setDrillOpacity(parseInt(e.target.value) / 100);
+        document.getElementById("drillOpacityValue").textContent =
+          `${e.target.value}%`;
+      });
+
+      document.getElementById("showGrid").addEventListener("change", (e) => {
+        viewer.grid.visible = e.target.checked;
+        viewer.axisHelper.visible = e.target.checked;
+      });
+
+      document
+        .getElementById("showMaterial")
+        .addEventListener("change", (e) => {
+          const show = e.target.checked;
+          const sheets = viewer.sheetMeshes || [];
+          sheets.forEach((s) => {
+            s.visible = show;
+          });
+          if (!sheets.length) viewer.workpiece.visible = show;
+        });
+
+      document.getElementById("showChips").addEventListener("change", (e) => {
+        viewer.chips.visible = e.target.checked;
+      });
+
+      // Audio controls
+      document.getElementById("masterVol").addEventListener("input", (e) => {
+        viewer.audio.setMasterVolume(parseInt(e.target.value) / 100);
+        document.getElementById("masterVolValue").textContent =
+          `${e.target.value}%`;
+      });
+
+      document.getElementById("spindleVol").addEventListener("input", (e) => {
+        viewer.audio.setSpindleVolume(parseInt(e.target.value) / 100);
+        document.getElementById("spindleVolValue").textContent =
+          `${e.target.value}%`;
+      });
+
+      document.getElementById("cuttingVol").addEventListener("input", (e) => {
+        viewer.audio.setCuttingVolume(parseInt(e.target.value) / 100);
+        document.getElementById("cuttingVolValue").textContent =
+          `${e.target.value}%`;
+      });
+
+      // Timeline scrubbing
+      document.getElementById("tlProgress").addEventListener("click", (e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const percent = x / rect.width;
+        viewer.simulation.currentTime = percent * viewer.simulation.totalTime;
+
+        // Find the correct operation index
+        const ops = viewer.simulation.operations;
+        for (let i = 0; i < ops.length; i++) {
+          if (ops[i].endTime >= viewer.simulation.currentTime) {
+            viewer.simulation.currentOpIndex = i;
+            break;
+          }
+        }
+        viewer.refreshReveal();
+      });
+
+      // Keyboard shortcuts
+      document.addEventListener("keydown", (e) => {
+        if (e.target.tagName === "INPUT") return;
+
+        switch (e.key.toLowerCase()) {
+          case "g":
+            viewer.setTransformMode("translate");
+            break;
+          case "r":
+            viewer.setTransformMode("rotate");
+            break;
+          case "s":
+            viewer.setTransformMode("scale");
+            break;
+          case " ":
+            e.preventDefault();
+            if (viewer.simulation.playing) {
+              viewer.pauseSimulation();
+            } else {
+              viewer.playSimulation();
+            }
+            break;
+          case "escape":
+            viewer.stopSimulation();
+            viewer.transformControls.detach();
+            viewer.selectedPart = null;
+            document
+              .querySelectorAll(".part-item")
+              .forEach((el) => el.classList.remove("selected"));
+            break;
+          case "f":
+            viewer.frameAll();
+            break;
+          case "a":
+            viewer.assemble();
+            break;
+          case "e":
+            viewer.explode();
+            break;
+        }
+      });
+
+      console.log(
+        "%c🔧 CNC Wireframe Studio Loaded — Young and Associates catalog (Young nomenclature)",
+        "color: #00d4ff; font-size: 14px; font-weight: bold;",
+      );
+      console.log(
+        "Keyboard shortcuts: G=Move, R=Rotate, S=Scale, Space=Play/Pause, F=Frame, A=Assemble, E=Explode, Esc=Stop",
+      );
+    </script>
+  </body>
+</html>

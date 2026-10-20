@@ -1,0 +1,1803 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SINUMERIK 840D / FANUC CNC Shop-Floor HMI Terminal — Young &amp; Associates</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&amp;family=Chakra+Petch:ital,wght@0,400;0,600;0,700;1,700&amp;family=JetBrains+Mono:wght@400;600;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<style>
+  :root {
+    --hmi-bg: #10141a;
+    --hmi-chassis: #161b24;
+    --hmi-surface: #1e2634;
+    --hmi-bezel: #0b0e14;
+    --hmi-amber: #ffaa00;
+    --hmi-amber-glow: rgba(255, 170, 0, 0.4);
+    --hmi-cyan: #00e5ff;
+    --hmi-green: #00ff66;
+    --hmi-red: #ff3344;
+    --hmi-border: #2c3647;
+    --hmi-screen-rim: #3b485d;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Chakra Petch', system-ui, sans-serif;
+    background: #090c10;
+    color: #cbd5e1;
+    user-select: none;
+    overflow: hidden;
+    height: 100vh;
+    margin: 0;
+  }
+  .font-mono { font-family: 'Share Tech Mono', 'JetBrains Mono', monospace; }
+  
+  /* CRT / Industrial scanlines overlay */
+  .crt-scanlines {
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.35) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+    background-size: 100% 3px, 4px 100%;
+    pointer-events: none;
+  }
+
+  /* Bezel and tactile hardware buttons */
+  .hmi-btn {
+    position: relative;
+    background: linear-gradient(180deg, #2b3545 0%, #171d27 100%);
+    border: 1px solid #475569;
+    border-top: 1px solid #64748b;
+    border-bottom: 2px solid #0f172a;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1);
+    transition: all 0.08s ease;
+  }
+  .hmi-btn:active, .hmi-btn.active {
+    transform: translateY(1px);
+    background: linear-gradient(180deg, #161c26 0%, #222b3a 100%);
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.9), 0 0 10px var(--hmi-amber-glow);
+    border-color: var(--hmi-amber);
+    color: #fff;
+  }
+
+  .estop-button {
+    background: radial-gradient(circle at 35% 35%, #ff4b5a 0%, #cc0016 65%, #7a000e 100%);
+    box-shadow: 0 8px 0 #4a0008, 0 12px 20px rgba(0,0,0,0.8), inset 0 2px 3px rgba(255,255,255,0.4);
+    border: 3px solid #ff7d89;
+  }
+  .estop-button:active {
+    transform: translateY(6px);
+    box-shadow: 0 2px 0 #4a0008, 0 4px 10px rgba(0,0,0,0.8), inset 0 2px 5px rgba(0,0,0,0.6);
+  }
+
+  .cycle-start-btn {
+    background: radial-gradient(circle at 35% 35%, #10d860 0%, #068a3b 70%, #024b1f 100%);
+    box-shadow: 0 6px 0 #023817, 0 8px 16px rgba(0,255,102,0.3), inset 0 2px 3px rgba(255,255,255,0.4);
+    border: 2px solid #57f597;
+  }
+  .cycle-start-btn:active {
+    transform: translateY(4px);
+    box-shadow: 0 2px 0 #023817, 0 4px 8px rgba(0,255,102,0.2), inset 0 2px 5px rgba(0,0,0,0.5);
+  }
+  .cycle-start-btn.running-pulse {
+    animation: cycleGlow 1.2s infinite alternate;
+  }
+  @keyframes cycleGlow {
+    0% { box-shadow: 0 0 10px #00ff66, inset 0 0 10px #10d860; }
+    100% { box-shadow: 0 0 24px #00ff66, 0 0 40px #068a3b, inset 0 0 20px #57f597; }
+  }
+
+  .feed-hold-btn {
+    background: radial-gradient(circle at 35% 35%, #ffb833 0%, #c47d00 70%, #6e4400 100%);
+    box-shadow: 0 6px 0 #4d2f00, 0 8px 16px rgba(255,170,0,0.3), inset 0 2px 3px rgba(255,255,255,0.4);
+    border: 2px solid #ffd066;
+  }
+  .feed-hold-btn:active {
+    transform: translateY(4px);
+    box-shadow: 0 2px 0 #4d2f00, 0 4px 8px rgba(255,170,0,0.2);
+  }
+
+  /* Segment LCD readout panel */
+  .dro-val {
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px rgba(0, 229, 255, 0.65);
+    transition: color 0.15s;
+  }
+
+  /* LED indicator lamps */
+  .led-lamp {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #1f2937;
+    border: 1px solid #374151;
+    display: inline-block;
+  }
+  .led-lamp.green-on {
+    background: #00ff66;
+    border-color: #7affaa;
+    box-shadow: 0 0 8px #00ff66;
+  }
+  .led-lamp.amber-on {
+    background: #ffaa00;
+    border-color: #ffd480;
+    box-shadow: 0 0 8px #ffaa00;
+  }
+  .led-lamp.red-on {
+    background: #ff3344;
+    border-color: #ff99a3;
+    box-shadow: 0 0 8px #ff3344;
+  }
+  .led-pulse {
+    animation: ledBlink 0.9s infinite alternate ease-in-out;
+  }
+  @keyframes ledBlink {
+    0% { opacity: 0.35; transform: scale(0.9); }
+    100% { opacity: 1; transform: scale(1.15); box-shadow: 0 0 12px #00ff66; }
+  }
+
+  /* Industrial Caution stripes banner */
+  .caution-stripes {
+    background: repeating-linear-gradient(
+      -45deg,
+      #f59e0b,
+      #f59e0b 10px,
+      #18181b 10px,
+      #18181b 20px
+    );
+  }
+
+  /* Custom range sliders styling */
+  input[type=range].industrial-slider {
+    -webkit-appearance: none;
+    height: 8px;
+    background: #0b0e14;
+    border: 1px solid #334155;
+    border-radius: 2px;
+  }
+  input[type=range].industrial-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 22px;
+    height: 18px;
+    background: linear-gradient(180deg, #f59e0b 0%, #b45309 100%);
+    border: 1px solid #fde68a;
+    border-radius: 2px;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.8);
+  }
+
+  #viewport canvas { display: block; outline: none; }
+
+  /* Tool turret slot item */
+  .turret-slot {
+    border-left: 3px solid #334155;
+    transition: all 0.2s;
+  }
+  .turret-slot.active {
+    border-left-color: #00e5ff;
+    background: rgba(0, 229, 255, 0.12);
+    box-shadow: inset 0 0 10px rgba(0, 229, 255, 0.15);
+  }
+
+  /* SKU quick launcher button */
+  .sku-chip {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    border: 1px solid #334155;
+    background: #0b1018;
+    color: #94a3b8;
+    padding: 2px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.12s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+  }
+  .sku-chip:hover {
+    border-color: #ffaa00;
+    color: #ffaa00;
+    background: #151d2a;
+  }
+  .sku-chip.selected {
+    border-color: #00e5ff;
+    background: rgba(0, 229, 255, 0.15);
+    color: #00e5ff;
+    font-weight: bold;
+    box-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
+  }
+
+  /* Auto toggle switch styling */
+  .toggle-checkbox:checked {
+    right: 0;
+    border-color: #10d860;
+  }
+  .toggle-checkbox:checked + .toggle-label {
+    background-color: #065f46;
+  }
+
+  /* Scrollbars */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: #0b0e14; }
+  ::-webkit-scrollbar-thumb { background: #2f3e53; border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: #f59e0b; }
+
+  /* G-Code live highlight line */
+  .gcode-row {
+    padding: 2px 6px;
+    border-radius: 2px;
+    transition: background 0.08s, color 0.08s;
+  }
+  .gcode-row.active-line {
+    background: rgba(255, 170, 0, 0.22);
+    border-left: 3px solid #ffaa00;
+    color: #ffd880;
+    font-weight: 700;
+  }
+  .gcode-row.past-line {
+    opacity: 0.55;
+    color: #64748b;
+  }
+</style>
+</head>
+<body class="h-screen w-screen flex flex-col bg-[#090c10] text-slate-200">
+<!-- INDUSTRIAL CHASSIS TOP HEADER -->
+<header class="h-14 bg-[#141a24] border-b-2 border-[#2b3749] flex items-center justify-between px-3 relative z-30 shadow-lg shrink-0">
+<div class="flex items-center gap-2">
+<!-- CNC OEM BADGE -->
+<div class="flex items-center bg-[#0d121a] border border-[#37455c] px-2.5 py-1 rounded shadow-inner">
+<div class="w-7 h-7 bg-gradient-to-br from-amber-500 to-yellow-600 flex items-center justify-center rounded-sm font-black text-black text-xs tracking-tighter mr-2 shadow">
+        HMI
+      </div>
+<div>
+<div class="flex items-center gap-1.5 leading-none">
+<span class="text-[13px] font-bold tracking-wider text-amber-400">SIEMENS / FANUC 31i-B5</span>
+<span class="bg-red-600/90 text-white text-[9px] font-mono px-1 py-0.2 rounded font-bold">5-AXIS</span>
+</div>
+<span class="text-[9px] font-mono text-slate-400 tracking-wider">SHOP-FLOOR TERMINAL · YOUNG &amp; ASSOCIATES INDUSTRIAL</span>
+</div>
+</div>
+<!-- MACHINE MODE SELECTOR TABS -->
+<div class="hidden xl:flex items-center gap-1 ml-1 bg-[#0d1117] p-1 rounded border border-[#232d3d]">
+<button class="hmi-btn active px-2.5 py-1 text-[11px] font-bold text-amber-400 rounded-sm flex items-center gap-1" id="tabAutoMem">
+<span class="material-symbols-outlined text-sm">precision_manufacturing</span> AUTO (MEM)
+      </button>
+<button class="hmi-btn px-2.5 py-1 text-[11px] font-bold text-slate-300 rounded-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">terminal</span> MDI
+      </button>
+<button class="hmi-btn px-2.5 py-1 text-[11px] font-bold text-slate-300 rounded-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">pan_tool</span> JOG
+      </button>
+<button class="hmi-btn px-2.5 py-1 text-[11px] font-bold text-slate-300 rounded-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">home_pin</span> ZERO-RET
+      </button>
+</div>
+</div>
+<!-- SKU & AUTO-CYCLE BAR IN HEADER -->
+<div class="flex items-center gap-2">
+<!-- AUTO-CYCLE ON SKU LOAD TOGGLE SWITCH (ITEM 2) -->
+<div class="flex items-center bg-[#0d131d] border border-[#2e3b4f] px-2.5 py-1 rounded shadow-inner gap-2">
+<div class="flex flex-col">
+<div class="flex items-center gap-1.5">
+<span class="led-lamp green-on led-pulse" id="autoRunLed"></span>
+<span class="text-[10px] font-mono font-bold text-emerald-400 tracking-wider uppercase" id="autoRunStatusText">AUTO-RUN ENGAGED</span>
+</div>
+<span class="text-[8px] font-mono text-slate-400">AUTO-CYCLE ON SKU LOAD</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" id="autoCycleToggle" type="checkbox"/>
+<div class="w-9 h-5 bg-[#1a2332] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600 border border-slate-600"></div>
+</label>
+</div>
+<!-- SKU SELECTOR -->
+<div class="flex items-center bg-[#090d13] border border-[#334155] rounded px-2 py-0.5">
+<span class="text-[10px] font-mono text-amber-500 font-bold mr-1">SKU:</span>
+<select class="bg-transparent text-amber-300 font-mono text-xs border-0 focus:ring-0 cursor-pointer py-1 pr-6 font-bold" id="skuSelect">
+<option value="WALL-18W-30H">WALL-18W-30H (6 PARTS · 3/4" BIRCH)</option>
+<option value="BASE-24D-34H">BASE-24D-34H (8 PARTS · EURO BOX)</option>
+<option value="TALL-84H-PULLOUT">TALL-84H-PULLOUT (11 PARTS · OAK)</option>
+<option value="CORNER-DIAG-36W">CORNER-DIAG-36W (9 PARTS · MAPLE)</option>
+</select>
+</div>
+<!-- EXEC LOAD BUTTON -->
+<button class="hmi-btn px-3 py-1.5 text-xs font-bold text-emerald-400 rounded flex items-center gap-1 active:scale-95" id="btnLoadSku" title="Parse manifest &amp; trigger live playback">
+<span class="material-symbols-outlined text-sm">download</span> EXEC LOAD
+    </button>
+<button class="hmi-btn px-2.5 py-1.5 text-xs font-bold text-cyan-400 rounded flex items-center gap-1" id="btnGcodeInspect">
+<span class="material-symbols-outlined text-sm">folder_open</span> G-CODE
+    </button>
+<button class="hmi-btn px-2.5 py-1.5 text-xs font-bold text-amber-400 rounded flex items-center gap-1" id="btnReset" title="Reset Viewport">
+<span class="material-symbols-outlined text-sm">crop_free</span> 3D ISO
+    </button>
+<button class="hmi-btn px-2.5 py-1.5 text-xs font-bold text-slate-300 rounded flex items-center gap-1" id="btnSound" title="Toggle Spindle Audio Synthesizer">
+<span class="material-symbols-outlined text-sm text-cyan-400" id="soundIcon">volume_up</span> AUDIO: <span class="text-cyan-400" id="soundLabel">ON</span>
+</button>
+</div>
+</header>
+<!-- QUICK-LAUNCH SKU CHIP STRIP (ITEM 6) -->
+<div class="bg-[#0e131d] border-b border-[#232d3d] px-3 py-1 flex items-center justify-between text-xs font-mono shrink-0">
+<div class="flex items-center gap-2 overflow-x-auto py-0.5">
+<span class="text-[9px] font-bold text-amber-500 uppercase tracking-wider flex items-center gap-1">
+<span class="material-symbols-outlined text-xs text-amber-400">bolt</span> QUICK LAUNCH SKU:
+    </span>
+<button class="sku-chip selected" data-sku="WALL-18W-30H">
+<span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span> [WALL-18W-30H]
+    </button>
+<button class="sku-chip" data-sku="BASE-24D-34H">
+<span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> [BASE-24D-34H]
+    </button>
+<button class="sku-chip" data-sku="TALL-84H-PULLOUT">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> [TALL-84H-PULLOUT]
+    </button>
+<button class="sku-chip" data-sku="CORNER-DIAG-36W">
+<span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span> [CORNER-DIAG-36W]
+    </button>
+</div>
+<div class="hidden md:flex items-center gap-3 text-[10px] text-slate-400">
+<span>SPOOL RATE: <span class="text-emerald-400 font-bold" id="quickRpmStat">18,000 RPM</span></span>
+<span class="text-slate-600">|</span>
+<span>PROGRAMMED FEED: <span class="text-cyan-400 font-bold" id="quickFeedStat">800 IPM</span></span>
+</div>
+</div>
+<!-- MAIN 3-COLUMN SHOP-FLOOR DASHBOARD -->
+<main class="flex-1 grid grid-cols-12 gap-1.5 p-1.5 overflow-hidden bg-[#090d13]">
+<!-- COLUMN 1: LEFT CONSOLE (MACHINE STATUS, DRO POSITIONS, SKU QUEUE, PARTS LIST) -->
+<aside class="col-span-12 lg:col-span-3 flex flex-col gap-1.5 overflow-hidden">
+<!-- BIG DRO COORDINATES DISPLAY (ITEM 5) -->
+<div class="bg-[#121722] border-2 border-[#2b3749] rounded p-2.5 shadow-md">
+<div class="flex items-center justify-between pb-1.5 border-b border-[#222d3d] mb-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-cyan-400 text-sm">pin_invoke</span>
+<span class="text-[11px] font-bold text-cyan-400 uppercase tracking-wider">MACHINE DIGITAL READOUT (DRO)</span>
+</div>
+<span class="text-[9px] font-mono bg-cyan-950 text-cyan-300 px-1.5 py-0.5 rounded border border-cyan-800" id="wcsBadge">G54 WORK</span>
+</div>
+<!-- AXIS READOUTS -->
+<div class="space-y-1.5">
+<!-- X AXIS -->
+<div class="flex items-center justify-between bg-[#080c12] border border-[#222c3d] px-2 py-1 rounded">
+<div class="flex items-center gap-2">
+<span class="w-6 h-6 rounded bg-red-950 border border-red-700 text-red-400 font-black flex items-center justify-center text-xs font-mono">X</span>
+<span class="text-[9px] font-mono text-slate-400">ACTUAL</span>
+</div>
+<div class="text-right">
+<div class="dro-val text-cyan-400 text-xl font-bold leading-none" id="droX">+000.000</div>
+<span class="text-[9px] font-mono text-slate-500">INCH</span>
+</div>
+<button class="hmi-btn px-2 py-1 text-[9px] font-bold text-amber-400 font-mono rounded-sm" onclick="zeroAxis('X')">ZERO X</button>
+</div>
+<!-- Y AXIS -->
+<div class="flex items-center justify-between bg-[#080c12] border border-[#222c3d] px-2 py-1 rounded">
+<div class="flex items-center gap-2">
+<span class="w-6 h-6 rounded bg-green-950 border border-green-700 text-green-400 font-black flex items-center justify-center text-xs font-mono">Y</span>
+<span class="text-[9px] font-mono text-slate-400">ACTUAL</span>
+</div>
+<div class="text-right">
+<div class="dro-val text-cyan-400 text-xl font-bold leading-none" id="droY">+000.000</div>
+<span class="text-[9px] font-mono text-slate-500">INCH</span>
+</div>
+<button class="hmi-btn px-2 py-1 text-[9px] font-bold text-amber-400 font-mono rounded-sm" onclick="zeroAxis('Y')">ZERO Y</button>
+</div>
+<!-- Z AXIS -->
+<div class="flex items-center justify-between bg-[#080c12] border border-[#222c3d] px-2 py-1 rounded">
+<div class="flex items-center gap-2">
+<span class="w-6 h-6 rounded bg-blue-950 border border-blue-700 text-blue-400 font-black flex items-center justify-center text-xs font-mono">Z</span>
+<span class="text-[9px] font-mono text-slate-400">ACTUAL</span>
+</div>
+<div class="text-right">
+<div class="dro-val text-amber-400 text-xl font-bold leading-none" id="droZ">+001.000</div>
+<span class="text-[9px] font-mono text-slate-500" id="droZLabel">INCH (RAPID)</span>
+</div>
+<button class="hmi-btn px-2 py-1 text-[9px] font-bold text-amber-400 font-mono rounded-sm" onclick="zeroAxis('Z')">ZERO Z</button>
+</div>
+</div>
+<!-- FEED & RAPID OVERRIDE DIALS -->
+<div class="mt-2.5 pt-2 border-t border-[#232d3e] grid grid-cols-2 gap-2">
+<div class="bg-[#090d14] p-1.5 rounded border border-[#1f2838]">
+<div class="flex justify-between items-center text-[10px] font-mono text-slate-400 mb-1">
+<span>FEED OVR</span>
+<span class="text-emerald-400 font-bold" id="feedOvrVal">100%</span>
+</div>
+<input class="industrial-slider w-full" id="feedOvrSlider" max="150" min="0" oninput="onFeedOverrideChange(this.value)" type="range" value="100"/>
+<div class="flex justify-between text-[8px] font-mono text-slate-500 mt-1">
+<span>0%</span><span>100%</span><span>150%</span>
+</div>
+</div>
+<div class="bg-[#090d14] p-1.5 rounded border border-[#1f2838]">
+<div class="flex justify-between items-center text-[10px] font-mono text-slate-400 mb-1">
+<span>RAPID OVR</span>
+<span class="text-amber-400 font-bold" id="rapidOvrVal">100%</span>
+</div>
+<input class="industrial-slider w-full" id="rapidOvrSlider" max="100" min="0" oninput="document.getElementById('rapidOvrVal').innerText=this.value+'%'" step="25" type="range" value="100"/>
+<div class="flex justify-between text-[8px] font-mono text-slate-500 mt-1">
+<span>0%</span><span>50%</span><span>100%</span>
+</div>
+</div>
+</div>
+</div>
+<!-- DEDICATED SKU JOB QUEUE & AUTO-RUNNER STATUS PANEL (ITEM 3) -->
+<div class="bg-[#121722] border-2 border-[#2b3749] rounded p-2 shadow-md flex flex-col gap-1">
+<div class="flex items-center justify-between pb-1 border-b border-[#232d3d]">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-cyan-400 text-sm">schedule_send</span>
+<span class="text-[11px] font-bold text-cyan-400 uppercase tracking-wider">SKU JOB QUEUE &amp; AUTO-RUNNER</span>
+</div>
+<span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-800 font-bold" id="pipelineStatus">READY</span>
+</div>
+<!-- 4-STEP PIPELINE TRACKER -->
+<div class="grid grid-cols-4 gap-1 text-[9px] font-mono text-center my-1">
+<div class="p-1 rounded bg-[#090e15] border border-slate-700" id="stepParse">
+<div class="text-[8px] text-slate-400">1. PARSE</div>
+<div class="font-bold text-slate-300 truncate">MANIFEST</div>
+</div>
+<div class="p-1 rounded bg-[#090e15] border border-slate-700" id="stepBuffer">
+<div class="text-[8px] text-slate-400">2. BUFFER</div>
+<div class="font-bold text-slate-300 truncate">INGESTION</div>
+</div>
+<div class="p-1 rounded bg-[#090e15] border border-slate-700" id="stepSpindle">
+<div class="text-[8px] text-slate-400">3. SPINDLE</div>
+<div class="font-bold text-slate-300 truncate">SPOOLING</div>
+</div>
+<div class="p-1 rounded bg-[#090e15] border border-slate-700" id="stepInterp">
+<div class="text-[8px] text-slate-400">4. RUN</div>
+<div class="font-bold text-slate-300 truncate">G-INTERP</div>
+</div>
+</div>
+<div class="text-[9px] font-mono text-slate-400 flex justify-between px-1">
+<span>ACTIVE PROGRAM: <span class="text-amber-400 font-bold" id="manifestProgId">O2001</span></span>
+<span>QUEUE DEPTH: <span class="text-emerald-400 font-bold" id="manifestQueueCount">1/1</span></span>
+</div>
+</div>
+<!-- CUTTING JOB PARTS LIST -->
+<div class="flex-1 bg-[#121722] border-2 border-[#2b3749] rounded p-2 flex flex-col min-h-0 shadow-md">
+<div class="flex items-center justify-between pb-1.5 border-b border-[#232d3d] mb-1.5">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-amber-400 text-sm">inventory_2</span>
+<span class="text-[11px] font-bold text-amber-400 uppercase tracking-wider">CUTTING LIST &amp; GRAIN</span>
+</div>
+<span class="text-[10px] font-mono text-slate-400">TOTAL: <span class="text-amber-300 font-bold" id="partCount">3</span></span>
+</div>
+<div class="flex-1 overflow-y-auto space-y-1 pr-1 font-mono text-xs" id="partsList">
+<!-- Injected via script -->
+</div>
+<!-- ASSEMBLY SPREAD ACCORDION -->
+<div class="pt-2 mt-1 border-t border-[#232d3d] bg-[#0c1017] p-2 rounded">
+<div class="flex justify-between items-center mb-1">
+<span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+<span class="material-symbols-outlined text-xs text-amber-400">layers</span> CAD Assembly Explode
+          </span>
+<span class="text-[10px] font-mono text-amber-400 font-bold" id="explodeValue">0%</span>
+</div>
+<div class="flex gap-1.5 mb-1.5">
+<button class="hmi-btn flex-1 py-1 text-[10px] font-bold text-emerald-400 rounded flex items-center justify-center gap-1" id="btnAssemble">
+<span class="material-symbols-outlined text-xs">compress</span> ASSEMBLE
+          </button>
+<button class="hmi-btn flex-1 py-1 text-[10px] font-bold text-amber-400 rounded flex items-center justify-center gap-1" id="btnExplode">
+<span class="material-symbols-outlined text-xs">open_in_full</span> EXPLODE
+          </button>
+</div>
+<input class="industrial-slider w-full" id="explodeSlider" max="100" min="0" type="range" value="0"/>
+</div>
+</div>
+</aside>
+<!-- COLUMN 2: CENTER 3D SIMULATION TERMINAL WITH OVERLAY HUD -->
+<section class="col-span-12 lg:col-span-6 flex flex-col gap-1.5 relative overflow-hidden">
+<!-- TOP HUD OVERLAY BAR -->
+<div class="h-10 bg-[#121722] border-2 border-[#2b3749] rounded flex items-center justify-between px-3 z-10 shadow">
+<div class="flex items-center gap-3 font-mono text-xs">
+<span class="flex items-center gap-1.5 text-emerald-400 font-bold">
+<span class="led-lamp green-on" id="hudSimLamp"></span>
+<span id="simStateLabel">SIM-ENGINE ACTIVE</span>
+</span>
+<span class="text-slate-500">|</span>
+<span class="text-slate-300">PLANE: <span class="text-cyan-400 font-bold" id="activePlaneLabel">G17 (X-Y)</span></span>
+<span class="text-slate-500">|</span>
+<span class="text-slate-300">INTERP: <span class="text-amber-400 font-bold" id="interpLabel">G01 LINEAR</span></span>
+</div>
+<div class="flex items-center gap-1.5">
+<button class="hmi-btn px-2 py-0.5 text-[10px] font-bold text-slate-300 rounded active" id="modeTranslate">PAN</button>
+<button class="hmi-btn px-2 py-0.5 text-[10px] font-bold text-slate-300 rounded" id="modeRotate">ORBIT</button>
+<button class="hmi-btn px-2 py-0.5 text-[10px] font-bold text-slate-300 rounded" id="modeScale">ZOOM</button>
+<button class="hmi-btn px-2 py-0.5 text-[10px] font-bold text-amber-400 rounded flex items-center gap-1" id="toggleWireMat">
+<span class="material-symbols-outlined text-xs">grid_4x4</span> WIRE/SOLID
+        </button>
+</div>
+</div>
+<!-- 3D VIEWPORT CONTAINER -->
+<div class="flex-1 relative bg-[#070a0f] border-2 border-[#2a364a] rounded overflow-hidden shadow-inner flex">
+<div class="w-full h-full" id="viewport"></div>
+<!-- CRT scanline overlay -->
+<div class="crt-scanlines absolute inset-0"></div>
+<!-- CENTER HUD RETICLE & CROSSHAIR -->
+<div class="absolute inset-0 pointer-events-none flex items-center justify-center opacity-30">
+<div class="w-24 h-24 border border-cyan-500/40 rounded-full flex items-center justify-center">
+<div class="w-1 h-6 bg-cyan-400/50 absolute"></div>
+<div class="h-1 w-6 bg-cyan-400/50 absolute"></div>
+</div>
+</div>
+<!-- VIEWPORT TOP RIGHT ANNOTATIONS (DYNAMIC TELEMETRY) -->
+<div class="absolute top-2 right-2 pointer-events-none bg-black/75 border border-slate-700 p-2 rounded text-[10px] font-mono space-y-0.5 text-right shadow-lg backdrop-blur-sm">
+<div>SPINDLE SPEED: <span class="text-amber-400 font-bold" id="telemetrySpindleRpm">18,000 RPM</span></div>
+<div>PROGRAMMED FEED: <span class="text-cyan-400 font-bold" id="telemetryFeedRate">800 IPM</span></div>
+<div>DEPTH PER PASS: <span class="text-slate-300" id="telemetryDepth">0.750 INCH</span></div>
+<div>TOOL RADIUS: <span class="text-emerald-400 font-bold" id="telemetryTool">0.250 IN (T01)</span></div>
+<div>CUT PROGRESS: <span class="text-cyan-300 font-bold" id="telemetryPct">0%</span></div>
+</div>
+<!-- VIEWPORT BOTTOM LEFT AXIS TRIAD INDICATOR -->
+<div class="absolute bottom-3 left-3 pointer-events-none bg-[#10141d]/90 border border-[#2e3b4e] p-2 rounded text-[9px] font-mono backdrop-blur-sm">
+<div class="text-slate-400 font-bold uppercase mb-1">Work Coordinate Matrix</div>
+<div class="text-red-400 font-bold">+X: EAST · BED LENGTH</div>
+<div class="text-green-400 font-bold">+Y: NORTH · GANTRY SPAN</div>
+<div class="text-blue-400 font-bold">+Z: VERTICAL · SPINDLE HEAD</div>
+</div>
+<!-- SIMULATION PROGRESS SCRUBBER -->
+<div class="absolute bottom-2 left-44 right-2 bg-[#121822]/95 border border-[#334257] p-2 rounded flex items-center gap-3 backdrop-blur shadow-lg">
+<button class="hmi-btn px-3 py-1 text-xs font-bold text-emerald-400 rounded flex items-center gap-1 active:scale-95" id="simTogglePlay">
+<span class="material-symbols-outlined text-sm" id="simPlayIcon">play_arrow</span> <span id="simPlayText">RUN</span>
+</button>
+<button class="hmi-btn px-2 py-1 text-xs font-bold text-amber-400 rounded flex items-center gap-1" id="simRewind" title="Rewind to start">
+<span class="material-symbols-outlined text-sm">replay</span>
+</button>
+<div class="flex-1 flex flex-col justify-center">
+<div class="flex justify-between text-[9px] font-mono text-slate-400 mb-0.5">
+<span>TOOLPATH SIMULATION PLAYBACK</span>
+<span class="text-cyan-300 font-bold" id="simTimeReadout">00:00 / 01:28 (SEC)</span>
+</div>
+<div class="w-full bg-[#090d14] h-2.5 rounded border border-slate-700 relative overflow-hidden cursor-pointer" id="progressTrack">
+<div class="h-full bg-gradient-to-r from-cyan-500 via-amber-400 to-emerald-400 w-0 transition-all duration-75" id="simProgressBar"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- LOWER CONSOLE: PHYSICAL-STYLE CYCLE RUN & HARDWARE OPERATOR KEYS -->
+<div class="h-20 bg-[#141a24] border-2 border-[#2b3749] rounded p-2 flex items-center justify-between shadow-lg">
+<div class="flex items-center gap-3">
+<!-- BIG CYCLE START (GREEN) -->
+<button class="cycle-start-btn h-16 px-5 rounded flex flex-col items-center justify-center text-white cursor-pointer active:scale-95 transition-transform" id="btnCycleStart">
+<span class="material-symbols-outlined text-2xl font-bold">play_circle</span>
+<span class="text-[10px] font-black tracking-wider uppercase mt-0.5">CYCLE START</span>
+</button>
+<!-- FEED HOLD (AMBER) -->
+<button class="feed-hold-btn h-16 px-4 rounded flex flex-col items-center justify-center text-black cursor-pointer active:scale-95 transition-transform" id="btnFeedHold">
+<span class="material-symbols-outlined text-2xl font-bold">pause_circle</span>
+<span class="text-[10px] font-black tracking-wider uppercase mt-0.5">FEED HOLD</span>
+</button>
+<!-- CYCLE STOP (DARK GRAY/RED) -->
+<button class="hmi-btn h-16 px-3 rounded flex flex-col items-center justify-center text-red-400 cursor-pointer" id="btnCycleStop">
+<span class="material-symbols-outlined text-xl">stop_circle</span>
+<span class="text-[9px] font-bold tracking-wider uppercase mt-0.5">ABORT</span>
+</button>
+</div>
+<!-- CENTER HARDWARE TOGGLE BUTTONS -->
+<div class="grid grid-cols-4 gap-1.5">
+<button class="hmi-btn px-2.5 py-1 text-[9px] font-bold text-slate-300 rounded flex flex-col items-center" id="btnCoolant">
+<span class="material-symbols-outlined text-sm text-cyan-400">cyclone</span> COOLANT FLOOD
+        </button>
+<button class="hmi-btn px-2.5 py-1 text-[9px] font-bold text-slate-300 rounded flex flex-col items-center active" id="btnDust">
+<span class="material-symbols-outlined text-sm text-amber-400">air</span> DUST EXTRACT
+        </button>
+<button class="hmi-btn px-2.5 py-1 text-[9px] font-bold text-slate-300 rounded flex flex-col items-center active" id="btnVacuum">
+<span class="material-symbols-outlined text-sm text-emerald-400">lock</span> VACUUM TABLE
+        </button>
+<button class="hmi-btn px-2.5 py-1 text-[9px] font-bold text-slate-300 rounded flex flex-col items-center" id="btnLaser">
+<span class="material-symbols-outlined text-sm text-indigo-400">visibility</span> LASER POINTER
+        </button>
+</div>
+<!-- BIG MUSHROOM EMERGENCY STOP -->
+<div class="flex items-center gap-2 pl-3 border-l-2 border-[#2b3749]">
+<div class="text-right leading-none hidden sm:block">
+<div class="text-[11px] font-black text-red-500 tracking-wider">EMERGENCY</div>
+<div class="text-[9px] font-mono text-slate-400">KILL DRIVES</div>
+</div>
+<button class="estop-button w-16 h-16 rounded-full flex flex-col items-center justify-center text-white cursor-pointer active:scale-95 transition-transform" id="btnEstop" title="EMERGENCY STOP (SAFETY RELAY)">
+<span class="material-symbols-outlined text-2xl font-black">emergency</span>
+<span class="text-[8px] font-black tracking-tighter">E-STOP</span>
+</button>
+</div>
+</div>
+</section>
+<!-- COLUMN 3: RIGHT PANEL (TOOL TURRET INSPECTOR, ACTIVE G-CODE BUFFER, JOB ESTIMATE) -->
+<aside class="col-span-12 lg:col-span-3 flex flex-col gap-1.5 overflow-hidden">
+<!-- ACTIVE TOOL TURRET & CAROUSEL STATUS (ITEM 5) -->
+<div class="bg-[#121722] border-2 border-[#2b3749] rounded p-2.5 shadow-md">
+<div class="flex items-center justify-between pb-1.5 border-b border-[#232d3d] mb-2">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-amber-400 text-sm">construction</span>
+<span class="text-[11px] font-bold text-amber-400 uppercase tracking-wider">TOOL CAROUSEL (ATC 8-SLOT)</span>
+</div>
+<span class="text-[9px] font-mono text-emerald-400 bg-emerald-950 border border-emerald-800 px-1 py-0.5 rounded" id="atcStatusBadge">CLAMPED</span>
+</div>
+<div class="space-y-1.5 font-mono text-xs" id="carouselList">
+<!-- Slot 1 -->
+<div class="turret-slot active bg-[#0a0f16] p-1.5 rounded flex items-center justify-between" id="slot-t1">
+<div class="flex items-center gap-2">
+<span class="text-cyan-400 font-bold">T01</span>
+<div>
+<div class="text-[11px] font-bold text-slate-200">1/2" 2FL COMPRESSION</div>
+<div class="text-[9px] text-slate-400">MORTISE &amp; OUTLINE CUT</div>
+</div>
+</div>
+<span class="text-[9px] bg-cyan-900/60 text-cyan-300 px-1.5 py-0.5 rounded font-bold slot-tag">IN SPINDLE</span>
+</div>
+<!-- Slot 2 -->
+<div class="turret-slot bg-[#0a0f16] p-1.5 rounded flex items-center justify-between opacity-80" id="slot-t2">
+<div class="flex items-center gap-2">
+<span class="text-slate-400 font-bold">T02</span>
+<div>
+<div class="text-[11px] font-bold text-slate-300">5MM DOWEL DRILL</div>
+<div class="text-[9px] text-slate-400">SHELF PIN DRILLING</div>
+</div>
+</div>
+<span class="text-[9px] text-slate-500 slot-tag">POCKET 2</span>
+</div>
+<!-- Slot 3 -->
+<div class="turret-slot bg-[#0a0f16] p-1.5 rounded flex items-center justify-between opacity-80" id="slot-t3">
+<div class="flex items-center gap-2">
+<span class="text-slate-400 font-bold">T03</span>
+<div>
+<div class="text-[11px] font-bold text-slate-300">35MM HINGE BORER</div>
+<div class="text-[9px] text-slate-400">EURO BLUM CUP HOLES</div>
+</div>
+</div>
+<span class="text-[9px] text-slate-500 slot-tag">POCKET 3</span>
+</div>
+</div>
+</div>
+<!-- LIVE G-CODE BLOCK RUNNER (ITEM 4 - SCROLLS SYNCHRONOUSLY) -->
+<div class="flex-1 bg-[#121722] border-2 border-[#2b3749] rounded p-2 flex flex-col min-h-0 shadow-md">
+<div class="flex items-center justify-between pb-1.5 border-b border-[#232d3d] mb-1.5">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-cyan-400 text-sm">code</span>
+<span class="text-[11px] font-bold text-cyan-400 uppercase tracking-wider">ACTIVE G-CODE BUFFER</span>
+</div>
+<span class="text-[9px] font-mono text-slate-400">BLOCK: <span class="text-amber-400 font-bold" id="currentGcodeLine">N0001</span></span>
+</div>
+<!-- MONOSPACE TERMINAL BLOCK LOG -->
+<div class="flex-1 bg-[#06090e] border border-[#1d2634] p-2 rounded overflow-y-auto font-mono text-[11px] space-y-0.5 text-slate-400 relative" id="gcodeTerminal">
+<!-- Rendered dynamically -->
+</div>
+<!-- JOB METRICS & OPTIMIZER -->
+<div class="mt-2 pt-2 border-t border-[#232d3d] bg-[#0c1017] p-2 rounded space-y-1 text-[10px] font-mono">
+<div class="flex justify-between">
+<span class="text-slate-400">ESTIMATED RUN TIME:</span>
+<span class="text-emerald-400 font-bold" id="estRunTime">04 MIN 32 SEC</span>
+</div>
+<div class="flex justify-between">
+<span class="text-slate-400">TOTAL LINEAR DISTANCE:</span>
+<span class="text-cyan-400 font-bold" id="estDistance">142.50 INCHES</span>
+</div>
+<div class="flex justify-between">
+<span class="text-slate-400">NESTING YIELD (4x8 SHEET):</span>
+<span class="text-amber-400 font-bold" id="nestingYield">89.4% RAW MATERIAL</span>
+</div>
+</div>
+</div>
+<!-- CAUTION STRIP SAFETY WARNING FOOTER -->
+<div class="h-6 caution-stripes rounded flex items-center justify-center">
+<span class="bg-black/90 text-amber-400 text-[9px] font-black font-mono px-3 py-0.5 tracking-widest uppercase rounded">
+        CAUTION: AUTOMATIC START CAPABLE · KEEP ENCLOSURE CLOSED
+      </span>
+</div>
+</aside>
+</main>
+<!-- INDUSTRIAL BOTTOM STATUS STRIP -->
+<footer class="h-8 bg-[#0e121a] border-t-2 border-[#2b3749] px-3 flex items-center justify-between text-[11px] font-mono z-30 shrink-0">
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-1.5">
+<span class="led-lamp green-on" id="plcStatusLed"></span>
+<span class="text-slate-400">PLC:</span>
+<span class="text-emerald-400 font-bold" id="plcStatusText">RUNNING</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="text-slate-400">AIR PRESSURE:</span>
+<span class="text-cyan-400 font-bold" id="airPressText">92.4 PSI</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="text-slate-400">SERVO LOAD:</span>
+<span class="text-amber-400 font-bold" id="servoLoadText">X:14% Y:22% Z:08%</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-1.5">
+<span class="text-slate-400">ACTIVE WCS:</span>
+<span class="text-amber-400 font-bold" id="activeWcsFooter">G54 (#1 BIRCH BASE)</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="text-slate-400">UNITS:</span>
+<span class="text-cyan-400 font-bold">G20 INCH / IPM</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="text-slate-400">CHASSIS TEMP:</span>
+<span class="text-slate-200">34.2°C</span>
+</div>
+</div>
+</footer>
+<!-- INITIALIZATION OVERLAY (DISMISSED UPON LOAD) -->
+<div class="fixed inset-0 bg-[#090d13]/95 z-50 flex flex-col items-center justify-center font-mono" id="loading">
+<div class="w-12 h-12 border-4 border-amber-500/20 border-t-amber-400 rounded-full animate-spin mb-3"></div>
+<div class="text-amber-400 font-bold text-sm tracking-widest">BOOTING SINUMERIK CNC KERNEL...</div>
+<div class="text-slate-500 text-xs mt-1">CALIBRATING AXES X / Y / Z &amp; PARSING TOOLPATH G-CODE</div>
+</div>
+<script>
+// =========================================================================
+// SKU DATASETS & PRE-COMPILED CNC PROGRAMS
+// =========================================================================
+const SKU_DATABASE = {
+  'WALL-18W-30H': {
+    name: 'WALL-18W-30H (6 PARTS · 3/4" BIRCH)',
+    estTime: '04 MIN 32 SEC',
+    dist: '142.50 INCHES',
+    yield: '89.4% RAW MATERIAL',
+    wcs: 'G54 (#1 BIRCH BASE)',
+    gcode: `O2001 (LEFT SIDE PANEL - 12.0 X 30.0)
+N0010 G90 G20 G17 G40 G80
+N0020 G28 G91 Z0.
+N0030 T01 M06 (TOOL CALL: 1/2 COMPRESSION)
+N0040 S18000 M03
+N0050 G00 X0.0 Y0.0 Z1.000
+N0060 G01 Z-0.750 F400
+N0070 G01 X12.000 F800
+N0080 G01 Y30.000
+N0090 G01 X0.000
+N0100 G01 Y0.000
+N0110 G00 Z1.000
+O2002 (RIGHT SIDE PANEL - 12.0 X 30.0)
+N0120 G00 X14.0 Y0.0 Z1.000
+N0130 G01 Z-0.750 F400
+N0140 G01 X26.000 F800
+N0150 G01 Y30.000
+N0160 G01 X14.000
+N0170 G01 Y0.000
+N0180 G00 Z1.000
+O2003 (TOP SHELF DECK - 16.5 X 11.25)
+N0190 G00 X0.0 Y32.0 Z1.000
+N0200 G01 Z-0.750 F400
+N0210 G01 X16.500 F800
+N0220 G01 Y43.250
+N0230 G01 X0.000
+N0240 G01 Y32.000
+N0250 G00 Z1.000
+O2004 (BOTTOM SHELF DECK - 16.5 X 11.25)
+N0260 G00 X18.0 Y32.0 Z1.000
+N0270 G01 Z-0.750 F400
+N0280 G01 X34.500 F800
+N0290 G01 Y43.250
+N0300 G01 X18.000
+N0310 G01 Y32.000
+N0320 G00 Z1.000
+O2005 (BACK HANGING CLEATS - 3.5 X 16.5)
+N0330 G00 X0.0 Y45.0 Z1.000
+N0340 G01 Z-0.750 F400
+N0350 G01 X16.500 F800
+N0360 G01 Y48.500
+N0370 G01 X0.000
+N0380 G01 Y45.000
+N0390 G00 Z1.000
+O2006 (SHELF PIN DRILL ARRAY - T02)
+N0400 T02 M06 (5MM DOWEL DRILL)
+N0410 S6000 M03
+N0420 G00 X4.0 Y6.0 Z1.000
+N0430 G01 Z-0.375 F120
+N0440 G00 Z1.000
+N0450 G00 X4.0 Y12.0
+N0460 G01 Z-0.375 F120
+N0470 G00 Z1.000
+N0480 G00 X4.0 Y18.0
+N0490 G01 Z-0.375 F120
+N0500 G00 Z1.000
+N0510 M05
+N0520 G28 G91 Z0.
+N0530 M30`
+  },
+  'BASE-24D-34H': {
+    name: 'BASE-24D-34H (8 PARTS · EURO BOX)',
+    estTime: '06 MIN 14 SEC',
+    dist: '198.20 INCHES',
+    yield: '92.1% RAW MATERIAL',
+    wcs: 'G54 (#2 EURO CARCASS)',
+    gcode: `O3001 (BASE LEFT GABLE - 24.0 X 34.5)
+N0010 G90 G20 G17 G40 G80
+N0020 G28 G91 Z0.
+N0030 T01 M06 (1/2 COMPRESSION)
+N0040 S18000 M03
+N0050 G00 X0.0 Y0.0 Z1.000
+N0060 G01 Z-0.750 F400
+N0070 G01 X24.000 F850
+N0080 G01 Y34.500
+N0090 G01 X0.000
+N0100 G01 Y0.000
+N0110 G00 Z1.000
+O3002 (BASE RIGHT GABLE - 24.0 X 34.5)
+N0120 G00 X25.5 Y0.0 Z1.000
+N0130 G01 Z-0.750 F400
+N0140 G01 X49.500 F850
+N0150 G01 Y34.500
+N0160 G01 X25.500
+N0170 G01 Y0.000
+N0180 G00 Z1.000
+O3003 (SUB-BASE BOTTOM DECK - 22.5 X 23.5)
+N0190 G00 X0.0 Y36.0 Z1.000
+N0200 G01 Z-0.750 F400
+N0210 G01 X22.500 F850
+N0220 G01 Y59.500
+N0230 G01 X0.000
+N0240 G01 Y36.000
+N0250 G00 Z1.000
+O3004 (TOE KICK INTEGRATED - 4.5 X 22.5)
+N0260 G00 X24.0 Y36.0 Z1.000
+N0270 G01 Z-0.750 F400
+N0280 G01 X46.500 F850
+N0290 G01 Y40.500
+N0300 G01 X24.000
+N0310 G01 Y36.000
+N0320 G00 Z1.000
+O3005 (HINGE POCKET BORE - T03)
+N0330 T03 M06 (35MM BLUM CUP)
+N0340 S4500 M03
+N0350 G00 X4.0 Y8.0 Z1.000
+N0360 G01 Z-0.500 F80
+N0370 G00 Z1.000
+N0380 G00 X4.0 Y28.0
+N0390 G01 Z-0.500 F80
+N0400 G00 Z1.000
+N0410 M05
+N0420 G28 G91 Z0.
+N0430 M30`
+  },
+  'TALL-84H-PULLOUT': {
+    name: 'TALL-84H-PULLOUT (11 PARTS · OAK)',
+    estTime: '08 MIN 45 SEC',
+    dist: '286.00 INCHES',
+    yield: '94.8% RAW MATERIAL',
+    wcs: 'G54 (#3 OAK VENEER)',
+    gcode: `O4001 (TALL LEFT SIDE - 24.0 X 84.0)
+N0010 G90 G20 G17 G40 G80
+N0020 G28 G91 Z0.
+N0030 T01 M06 (1/2 COMPRESSION)
+N0040 S18000 M03
+N0050 G00 X0.0 Y0.0 Z1.000
+N0060 G01 Z-0.750 F400
+N0070 G01 X24.000 F900
+N0080 G01 Y84.000
+N0090 G01 X0.000
+N0100 G01 Y0.000
+N0110 G00 Z1.000
+O4002 (TALL RIGHT SIDE - 24.0 X 84.0)
+N0120 G00 X25.0 Y0.0 Z1.000
+N0130 G01 Z-0.750 F400
+N0140 G01 X49.000 F900
+N0150 G01 Y84.000
+N0160 G01 X25.000
+N0170 G01 Y0.000
+N0180 G00 Z1.000
+O4003 (ADJUSTABLE SHELVES 5X - 16.0 X 22.0)
+N0190 G00 X0.0 Y86.0 Z1.000
+N0200 G01 Z-0.750 F400
+N0210 G01 X16.000 F850
+N0220 G01 Y108.000
+N0230 G01 X0.000
+N0240 G01 Y86.000
+N0250 G00 Z1.000
+O4004 (SLIDER CARRIAGE FRAME - 8.0 X 30.0)
+N0260 G00 X18.0 Y86.0 Z1.000
+N0270 G01 Z-0.750 F400
+N0280 G01 X26.000 F850
+N0290 G01 Y116.000
+N0300 G01 X18.000
+N0310 G01 Y86.000
+N0320 G00 Z1.000
+N0330 M05
+N0340 G28 G91 Z0.
+N0350 M30`
+  },
+  'CORNER-DIAG-36W': {
+    name: 'CORNER-DIAG-36W (9 PARTS · MAPLE)',
+    estTime: '05 MIN 50 SEC',
+    dist: '175.80 INCHES',
+    yield: '88.2% RAW MATERIAL',
+    wcs: 'G54 (#4 HARD MAPLE)',
+    gcode: `O5001 (DIAGONAL CORNER TOP - 36.0 X 36.0 L-SHAPE)
+N0010 G90 G20 G17 G40 G80
+N0020 G28 G91 Z0.
+N0030 T01 M06 (1/2 COMPRESSION)
+N0040 S18000 M03
+N0050 G00 X0.0 Y0.0 Z1.000
+N0060 G01 Z-0.750 F400
+N0070 G01 X36.000 F800
+N0080 G01 Y12.000
+N0090 G01 X12.000
+N0100 G01 Y36.000
+N0110 G01 X0.000
+N0120 G01 Y0.000
+N0130 G00 Z1.000
+O5002 (DIAGONAL CORNER BOTTOM - 36.0 X 36.0)
+N0140 G00 X0.0 Y38.0 Z1.000
+N0150 G01 Z-0.750 F400
+N0160 G01 X36.000 F800
+N0170 G01 Y50.000
+N0180 G01 X12.000
+N0190 G01 Y74.000
+N0200 G01 X0.000
+N0210 G01 Y38.000
+N0220 G00 Z1.000
+O5003 (LAZY SUSAN PIVOT DRILL - T02)
+N0230 T02 M06 (5MM DOWEL DRILL)
+N0240 S6500 M03
+N0250 G00 X18.0 Y18.0 Z1.000
+N0260 G01 Z-0.500 F150
+N0270 G00 Z1.000
+N0280 G00 X18.0 Y56.0
+N0290 G01 Z-0.500 F150
+N0300 G00 Z1.000
+N0310 M05
+N0320 G28 G91 Z0.
+N0330 M30`
+  }
+};
+
+// =========================================================================
+// WEB AUDIO INDUSTRIAL SPINDLE SOUND SYNTHESIZER
+// =========================================================================
+class SpindleAudioSynthesizer {
+  constructor() {
+    this.ctx = null;
+    this.spindleGain = null;
+    this.oscLow = null;
+    this.oscHigh = null;
+    this.noiseNode = null;
+    this.noiseGain = null;
+    this.enabled = true;
+    this.initialized = false;
+  }
+
+  init() {
+    if (this.initialized) return;
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      this.ctx = new AudioCtx();
+
+      // Master Spindle Output Gain
+      this.spindleGain = this.ctx.createGain();
+      this.spindleGain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
+      this.spindleGain.connect(this.ctx.destination);
+
+      // Low drone (motor stator hum ~120Hz)
+      this.oscLow = this.ctx.createOscillator();
+      this.oscLow.type = 'sawtooth';
+      this.oscLow.frequency.setValueAtTime(120, this.ctx.currentTime);
+      const lowFilter = this.ctx.createBiquadFilter();
+      lowFilter.type = 'lowpass';
+      lowFilter.frequency.setValueAtTime(250, this.ctx.currentTime);
+      this.oscLow.connect(lowFilter);
+      lowFilter.connect(this.spindleGain);
+      this.oscLow.start();
+
+      // High whine (18,000 RPM spindle ceramic bearing ~300Hz-700Hz)
+      this.oscHigh = this.ctx.createOscillator();
+      this.oscHigh.type = 'triangle';
+      this.oscHigh.frequency.setValueAtTime(320, this.ctx.currentTime);
+      this.oscHigh.connect(this.spindleGain);
+      this.oscHigh.start();
+
+      // Cutting flute turbulence (White Noise buffer)
+      const bufferSize = this.ctx.sampleRate * 2;
+      const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+      this.noiseNode = this.ctx.createBufferSource();
+      this.noiseNode.buffer = noiseBuffer;
+      this.noiseNode.loop = true;
+
+      const noiseFilter = this.ctx.createBiquadFilter();
+      noiseFilter.type = 'bandpass';
+      noiseFilter.frequency.setValueAtTime(1400, this.ctx.currentTime);
+      noiseFilter.Q.setValueAtTime(3.0, this.ctx.currentTime);
+
+      this.noiseGain = this.ctx.createGain();
+      this.noiseGain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
+
+      this.noiseNode.connect(noiseFilter);
+      noiseFilter.connect(this.noiseGain);
+      this.noiseGain.connect(this.ctx.destination);
+      this.noiseNode.start();
+
+      this.initialized = true;
+    } catch (e) {
+      console.warn("WebAudio disabled or blocked", e);
+    }
+  }
+
+  setSpindle(running, rpm = 18000, isCutting = false) {
+    if (!this.enabled || !this.initialized) return;
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+    const t = this.ctx.currentTime;
+    if (running) {
+      const baseFreq = (rpm / 18000) * 380;
+      this.oscHigh.frequency.setTargetAtTime(baseFreq, t, 0.1);
+      this.spindleGain.gain.setTargetAtTime(0.08, t, 0.2);
+      if (isCutting) {
+        this.noiseGain.gain.setTargetAtTime(0.045, t, 0.05); // Router bite hiss
+      } else {
+        this.noiseGain.gain.setTargetAtTime(0.005, t, 0.1);
+      }
+    } else {
+      this.spindleGain.gain.setTargetAtTime(0.0001, t, 0.15);
+      this.noiseGain.gain.setTargetAtTime(0.0001, t, 0.1);
+    }
+  }
+
+  toggle() {
+    this.enabled = !this.enabled;
+    if (!this.enabled && this.initialized) {
+      this.setSpindle(false);
+    }
+    return this.enabled;
+  }
+}
+
+const audioSynth = new SpindleAudioSynthesizer();
+
+// =========================================================================
+// G-CODE PARSER
+// =========================================================================
+class GCodeParser {
+  constructor() {
+    this.parts = new Map();
+    this.rawLines = [];
+  }
+
+  parse(code) {
+    this.parts.clear();
+    this.rawLines = [];
+    let currentPartId = 'MAIN';
+    let currentPartName = 'MAIN PROGRAM';
+    let currentTool = 1;
+    let currentSpindle = 18000;
+    let currentFeed = 800;
+    let pos = { x: 0, y: 0, z: 1.0 };
+    const operations = [];
+
+    const lines = code.split('\n');
+
+    this.parts.set(currentPartId, { name: currentPartName, ops: [], bounds: null });
+
+    for (let i = 0; i < lines.length; i++) {
+      const rawText = lines[i].trim();
+      if (!rawText) continue;
+
+      this.rawLines.push({ text: rawText, lineIndex: i });
+
+      // Detect sub-program or part name
+      const oMatch = rawText.match(/^O(\d+)\s*(?:\((.*)\))?/i);
+      if (oMatch) {
+        currentPartId = 'O' + oMatch[1];
+        currentPartName = oMatch[2] ? oMatch[2].trim() : ('Part ' + currentPartId);
+        if (!this.parts.has(currentPartId)) {
+          this.parts.set(currentPartId, { name: currentPartName, ops: [], bounds: null });
+        }
+        continue;
+      }
+
+      // Strip comments
+      let clean = rawText.replace(/\([^)]*\)/g, '').trim();
+      if (clean.startsWith('%')) continue;
+
+      const tokens = clean.match(/[A-Za-z]-?[\d.]+/g) || [];
+      let gCode = null;
+      const params = {};
+
+      for (const token of tokens) {
+        const letter = token[0].toUpperCase();
+        const val = parseFloat(token.substring(1));
+        if (letter === 'G') gCode = val;
+        else if (letter === 'T') currentTool = Math.round(val);
+        else if (letter === 'S') currentSpindle = val;
+        else if (letter === 'F') currentFeed = val;
+        else if ('XYZ'.includes(letter)) params[letter] = val;
+      }
+
+      if (gCode === 0 || gCode === 1 || ('X' in params || 'Y' in params || 'Z' in params)) {
+        const isCut = (gCode === 1 || (gCode === null && ('X' in params || 'Y' in params) && pos.z <= 0));
+        const to = {
+          x: ('X' in params) ? params.X : pos.x,
+          y: ('Y' in params) ? params.Y : pos.y,
+          z: ('Z' in params) ? params.Z : pos.z
+        };
+
+        const op = {
+          type: isCut ? 'cut' : 'rapid',
+          from: { ...pos },
+          to: { ...to },
+          tool: currentTool,
+          spindle: currentSpindle,
+          feed: currentFeed,
+          lineText: rawText,
+          lineIndex: this.rawLines.length - 1,
+          partId: currentPartId
+        };
+
+        operations.push(op);
+        if (this.parts.has(currentPartId)) {
+          this.parts.get(currentPartId).ops.push(op);
+        }
+        pos = to;
+      }
+    }
+
+    // Calculate bounding boxes for solid approximation
+    for (const [id, part] of this.parts) {
+      if (part.ops.length === 0) continue;
+      const min = { x: Infinity, y: Infinity, z: Infinity };
+      const max = { x: -Infinity, y: -Infinity, z: -Infinity };
+      for (const op of part.ops) {
+        for (const pt of [op.from, op.to]) {
+          min.x = Math.min(min.x, pt.x); min.y = Math.min(min.y, pt.y); min.z = Math.min(min.z, pt.z);
+          max.x = Math.max(max.x, pt.x); max.y = Math.max(max.y, pt.y); max.z = Math.max(max.z, pt.z);
+        }
+      }
+      part.bounds = {
+        min, max,
+        center: { x: (min.x + max.x) / 2, y: (min.y + max.y) / 2, z: (min.z + max.z) / 2 },
+        size: { x: max.x - min.x, y: max.y - min.y, z: max.z - min.z }
+      };
+    }
+
+    return {
+      parts: Array.from(this.parts.entries())
+        .filter(([k, v]) => v.ops.length > 0)
+        .map(([k, v]) => ({ id: k, ...v })),
+      operations,
+      rawLines: this.rawLines
+    };
+  }
+}
+
+// =========================================================================
+// THREE.JS INDUSTRIAL CNC VIEWPORT & LIVE CUTTER SIMULATOR
+// =========================================================================
+class IndustrialCNCViewer {
+  constructor() {
+    this.container = document.getElementById('viewport');
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(45, this.container.clientWidth / this.container.clientHeight, 1, 50000);
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
+    this.renderer.setClearColor(0x070a0f, 1);
+    this.container.appendChild(this.renderer.domElement);
+
+    this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.05;
+
+    this.parser = new GCodeParser();
+    this.parsedData = null;
+    this.partMeshes = new Map();
+    this.wireframeMode = false;
+
+    // Cutter Head 3D representation
+    this.cutterGroup = new THREE.Group();
+    this.setupCutterTool();
+    this.scene.add(this.cutterGroup);
+
+    // Live cut trail
+    this.cutSegments = [];
+    this.trailGroup = new THREE.Group();
+    this.scene.add(this.trailGroup);
+
+    this.setupScene();
+
+    window.addEventListener('resize', () => {
+      const w = this.container.clientWidth;
+      const h = this.container.clientHeight;
+      this.camera.aspect = w / h;
+      this.camera.updateProjectionMatrix();
+      this.renderer.setSize(w, h);
+    });
+
+    this.animate();
+  }
+
+  setupCutterTool() {
+    // Spindle Chuck (Cylinder)
+    const chuckGeo = new THREE.CylinderGeometry(15, 20, 45, 16);
+    const chuckMat = new THREE.MeshLambertMaterial({ color: 0x475569 });
+    const chuck = new THREE.Mesh(chuckGeo, chuckMat);
+    chuck.position.y = 35;
+    this.cutterGroup.add(chuck);
+
+    // Gold Collet Nut
+    const colletGeo = new THREE.CylinderGeometry(12, 14, 15, 12);
+    const colletMat = new THREE.MeshLambertMaterial({ color: 0xf59e0b });
+    const collet = new THREE.Mesh(colletGeo, colletMat);
+    collet.position.y = 15;
+    this.cutterGroup.add(collet);
+
+    // Carbide End Mill Bit (Cyan/Chrome tip)
+    const bitGeo = new THREE.CylinderGeometry(3.175, 3.175, 25, 12);
+    const bitMat = new THREE.MeshStandardMaterial({ color: 0x00e5ff, metalness: 0.85, roughness: 0.2 });
+    const bit = new THREE.Mesh(bitGeo, bitMat);
+    bit.position.y = 0;
+    this.cutterGroup.add(bit);
+
+    // Dynamic Spindle Glow Halo
+    const haloGeo = new THREE.RingGeometry(8, 14, 20);
+    const haloMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff, side: THREE.DoubleSide, transparent: true, opacity: 0.4 });
+    const halo = new THREE.Mesh(haloGeo, haloMat);
+    halo.rotation.x = Math.PI / 2;
+    halo.position.y = -10;
+    this.cutterGroup.add(halo);
+
+    this.cutterGroup.position.set(0, 50, 0);
+  }
+
+  setupScene() {
+    this.camera.position.set(650, 750, 850);
+    this.camera.lookAt(300, 0, -300);
+    this.controls.target.set(300, 0, -300);
+
+    const ambient = new THREE.AmbientLight(0xffffff, 0.45);
+    this.scene.add(ambient);
+
+    const dirLight = new THREE.DirectionalLight(0xffb833, 0.95);
+    dirLight.position.set(500, 900, 400);
+    this.scene.add(dirLight);
+
+    const blueRim = new THREE.DirectionalLight(0x00e5ff, 0.6);
+    blueRim.position.set(-400, 300, -500);
+    this.scene.add(blueRim);
+
+    // Industrial Table Grid (1600mm x 1600mm)
+    const grid = new THREE.GridHelper(1800, 36, 0xf59e0b, 0x1f2937);
+    grid.position.y = -1;
+    this.scene.add(grid);
+
+    // 4ft x 8ft Plywood Sheet Boundary (1219.2mm x 2438.4mm)
+    const sheetGeo = new THREE.BoxGeometry(1219.2, 19.05, 2438.4);
+    const sheetEdges = new THREE.EdgesGeometry(sheetGeo);
+    const sheetLine = new THREE.LineSegments(sheetEdges, new THREE.LineBasicMaterial({ color: 0x3b82f6, opacity: 0.45, transparent: true }));
+    sheetLine.position.set(609.6, -9.5, -1219.2);
+    this.scene.add(sheetLine);
+
+    // Translucent spoilboard plate
+    const boardMat = new THREE.MeshLambertMaterial({ color: 0x111827, transparent: true, opacity: 0.4 });
+    const boardMesh = new THREE.Mesh(sheetGeo, boardMat);
+    boardMesh.position.set(609.6, -9.5, -1219.2);
+    this.scene.add(boardMesh);
+  }
+
+  loadGCode(code) {
+    // Clean prior dynamic objects
+    for (const [id, item] of this.partMeshes) {
+      this.scene.remove(item.group);
+    }
+    this.partMeshes.clear();
+    
+    // Clear trail
+    while (this.trailGroup.children.length > 0) {
+      this.trailGroup.remove(this.trailGroup.children[0]);
+    }
+
+    this.parsedData = this.parser.parse(code);
+    const palette = [0x00e5ff, 0xffaa00, 0x00ff66, 0xff3344, 0xa855f7, 0x38bdf8];
+    const partsListEl = document.getElementById('partsList');
+    partsListEl.innerHTML = '';
+
+    let idx = 0;
+    for (const part of this.parsedData.parts) {
+      const group = new THREE.Group();
+      const col = palette[idx % palette.length];
+      const positions = [];
+
+      // Scale from inches to 3D scene mm (x25.4)
+      for (const op of part.ops) {
+        const fx = op.from.x * 25.4;
+        const fy = op.from.z * 25.4;
+        const fz = -op.from.y * 25.4;
+        const tx = op.to.x * 25.4;
+        const ty = op.to.z * 25.4;
+        const tz = -op.to.y * 25.4;
+        positions.push(fx, fy, fz, tx, ty, tz);
+      }
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      const mat = new THREE.LineBasicMaterial({ color: col, linewidth: 2 });
+      group.add(new THREE.LineSegments(geo, mat));
+
+      // Solid 3D Box Volume preview
+      if (part.bounds && part.bounds.size.x > 0 && part.bounds.size.y > 0) {
+        const sx = Math.max(part.bounds.size.x * 25.4, 20);
+        const sy = 19.05; // 3/4 inch sheet thickness
+        const sz = Math.max(part.bounds.size.y * 25.4, 20);
+        const boxGeo = new THREE.BoxGeometry(sx, sy, sz);
+        const boxMat = new THREE.MeshLambertMaterial({
+          color: col,
+          transparent: true,
+          opacity: 0.16,
+          wireframe: this.wireframeMode
+        });
+        const boxMesh = new THREE.Mesh(boxGeo, boxMat);
+        boxMesh.position.set(
+          part.bounds.center.x * 25.4,
+          sy / 2,
+          -part.bounds.center.y * 25.4
+        );
+        group.add(boxMesh);
+      }
+
+      this.scene.add(group);
+      this.partMeshes.set(part.id, { group, col });
+
+      // Cutting List Entry in Left Console
+      const itemEl = document.createElement('div');
+      itemEl.className = 'p-2 bg-[#090e15] border border-[#232f42] rounded hover:border-amber-400/80 cursor-pointer flex items-center justify-between transition-colors';
+      itemEl.innerHTML = `
+        <div class="flex items-center gap-2">
+          <div class="w-3 h-3 rounded-sm shadow" style="background:#${col.toString(16).padStart(6,'0')}"></div>
+          <div>
+            <div class="font-bold text-slate-200">${part.name}</div>
+            <div class="text-[10px] text-slate-400">GRAIN: HORIZONTAL · ${part.ops.length} CUTS</div>
+          </div>
+        </div>
+        <span class="text-[10px] px-1.5 py-0.5 bg-[#17202f] text-cyan-400 rounded border border-slate-700 font-bold">READY</span>
+      `;
+      partsListEl.appendChild(itemEl);
+      idx++;
+    }
+
+    document.getElementById('partCount').textContent = this.parsedData.parts.length;
+
+    // Reset cutter to home position
+    this.setCutterPosition(0, 0, 1.0);
+    return this.parsedData;
+  }
+
+  setCutterPosition(inchX, inchY, inchZ) {
+    const x = inchX * 25.4;
+    const y = (inchZ * 25.4) + 12; // elevated offset for tool collet
+    const z = -inchY * 25.4;
+    this.cutterGroup.position.set(x, y, z);
+  }
+
+  setExplode(val) {
+    let i = 0;
+    for (const [id, item] of this.partMeshes) {
+      const dirX = (i % 2 === 0 ? 1 : -1) * (i + 1) * 3.5;
+      const dirZ = (i > 1 ? -1 : 1) * (i + 1) * 3.5;
+      item.group.position.x = dirX * val;
+      item.group.position.z = dirZ * val;
+      item.group.position.y = val * 1.8;
+      i++;
+    }
+  }
+
+  toggleWireframe() {
+    this.wireframeMode = !this.wireframeMode;
+    for (const [id, item] of this.partMeshes) {
+      item.group.traverse((obj) => {
+        if (obj.isMesh && obj.material) {
+          obj.material.wireframe = this.wireframeMode;
+        }
+      });
+    }
+    return this.wireframeMode;
+  }
+
+  animate() {
+    requestAnimationFrame(() => this.animate());
+    this.controls.update();
+    // Spindle tool slight rotation when active
+    if (this.cutterGroup) {
+      this.cutterGroup.rotation.y += 0.2;
+    }
+    this.renderer.render(this.scene, this.camera);
+  }
+}
+
+// =========================================================================
+// SIMULATION PLAYBACK & TELEMETRY CONTROLLER
+// =========================================================================
+class CNCSimulationEngine {
+  constructor(viewer) {
+    this.viewer = viewer;
+    this.currentSku = 'WALL-18W-30H';
+    this.autoCycleOnLoad = true;
+    this.isPlaying = false;
+    this.playbackIndex = 0;
+    this.playbackTimer = null;
+    this.feedOverride = 1.0;
+    this.activeTool = 1;
+    this.spindleRpm = 18000;
+    this.elapsedSeconds = 0;
+
+    this.initUI();
+    this.loadSku(this.currentSku, true);
+  }
+
+  initUI() {
+    // Auto-cycle toggle
+    const toggle = document.getElementById('autoCycleToggle');
+    toggle.addEventListener('change', (e) => {
+      this.autoCycleOnLoad = e.target.checked;
+      const led = document.getElementById('autoRunLed');
+      const text = document.getElementById('autoRunStatusText');
+      if (this.autoCycleOnLoad) {
+        led.className = 'led-lamp green-on led-pulse';
+        text.innerText = 'AUTO-RUN ENGAGED';
+        text.className = 'text-[10px] font-mono font-bold text-emerald-400 tracking-wider uppercase';
+      } else {
+        led.className = 'led-lamp';
+        text.innerText = 'AUTO-RUN MANUAL';
+        text.className = 'text-[10px] font-mono font-bold text-slate-400 tracking-wider uppercase';
+      }
+    });
+
+    // SKU Select dropdown
+    const select = document.getElementById('skuSelect');
+    select.addEventListener('change', (e) => {
+      this.loadSku(e.target.value, this.autoCycleOnLoad);
+    });
+
+    // Exec Load button
+    document.getElementById('btnLoadSku').addEventListener('click', () => {
+      const val = document.getElementById('skuSelect').value;
+      this.loadSku(val, true);
+    });
+
+    // Quick launch chips
+    document.querySelectorAll('.sku-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sku = btn.getAttribute('data-sku');
+        document.querySelectorAll('.sku-chip').forEach(c => c.classList.remove('selected'));
+        btn.classList.add('selected');
+        document.getElementById('skuSelect').value = sku;
+        this.loadSku(sku, true);
+      });
+    });
+
+    // Simulation playback controls
+    document.getElementById('simTogglePlay').addEventListener('click', () => this.togglePlay());
+    document.getElementById('btnCycleStart').addEventListener('click', () => this.startPlay());
+    document.getElementById('btnFeedHold').addEventListener('click', () => this.pausePlay());
+    document.getElementById('btnCycleStop').addEventListener('click', () => this.stopPlay());
+    document.getElementById('simRewind').addEventListener('click', () => this.rewind());
+
+    // Audio toggle
+    document.getElementById('btnSound').addEventListener('click', () => {
+      audioSynth.init();
+      const on = audioSynth.toggle();
+      document.getElementById('soundLabel').innerText = on ? 'ON' : 'OFF';
+      document.getElementById('soundIcon').innerText = on ? 'volume_up' : 'volume_off';
+    });
+
+    // Wire/Solid toggle
+    document.getElementById('toggleWireMat').addEventListener('click', () => {
+      this.viewer.toggleWireframe();
+    });
+
+    // Assembly explode slider
+    const explodeSlider = document.getElementById('explodeSlider');
+    const explodeVal = document.getElementById('explodeValue');
+    explodeSlider.addEventListener('input', (e) => {
+      const v = parseFloat(e.target.value);
+      explodeVal.innerText = `${v}%`;
+      this.viewer.setExplode(v);
+    });
+    document.getElementById('btnExplode').addEventListener('click', () => {
+      explodeSlider.value = 100;
+      explodeVal.innerText = '100%';
+      this.viewer.setExplode(100);
+    });
+    document.getElementById('btnAssemble').addEventListener('click', () => {
+      explodeSlider.value = 0;
+      explodeVal.innerText = '0%';
+      this.viewer.setExplode(0);
+    });
+  }
+
+  loadSku(skuKey, autoPlay = true) {
+    const sku = SKU_DATABASE[skuKey];
+    if (!sku) return;
+    this.currentSku = skuKey;
+
+    // Reset controls
+    this.stopPlay();
+    audioSynth.init();
+
+    // Step 1: Pipeline status: PARSING MANIFEST
+    this.setPipelineStep('stepParse', 'PARSING');
+
+    // Update SKU Header stats
+    document.getElementById('estRunTime').innerText = sku.estTime;
+    document.getElementById('estDistance').innerText = sku.dist;
+    document.getElementById('nestingYield').innerText = sku.yield;
+    document.getElementById('wcsBadge').innerText = 'G54 WORK';
+    document.getElementById('activeWcsFooter').innerText = sku.wcs;
+
+    // Parse into Three.js
+    const parsed = this.viewer.loadGCode(sku.gcode);
+    this.renderGCodeBuffer(parsed.rawLines);
+
+    // Step 2: Buffer Ingestion
+    setTimeout(() => {
+      this.setPipelineStep('stepBuffer', 'INGESTING');
+      document.getElementById('manifestProgId').innerText = (parsed.parts[0] ? parsed.parts[0].id : 'O2001');
+      document.getElementById('manifestQueueCount').innerText = `1/${parsed.parts.length}`;
+    }, 120);
+
+    // Step 3: Spindle Spooling
+    setTimeout(() => {
+      this.setPipelineStep('stepSpindle', 'SPOOLING');
+      this.updateSpindleReadout(18000, true);
+    }, 280);
+
+    // Step 4: Autonomous Run trigger
+    setTimeout(() => {
+      this.setPipelineStep('stepInterp', 'INTERP G-CODE');
+      document.getElementById('pipelineStatus').innerText = 'RUNNING';
+      document.getElementById('pipelineStatus').className = 'text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 font-bold';
+
+      if (autoPlay) {
+        this.startPlay();
+      }
+    }, 450);
+  }
+
+  setPipelineStep(stepId, label) {
+    const steps = ['stepParse', 'stepBuffer', 'stepSpindle', 'stepInterp'];
+    steps.forEach(s => {
+      const el = document.getElementById(s);
+      el.className = 'p-1 rounded bg-[#090e15] border border-slate-700';
+    });
+    const target = document.getElementById(stepId);
+    if (target) {
+      target.className = 'p-1 rounded bg-amber-950/60 border border-amber-500 text-amber-300 shadow';
+    }
+  }
+
+  renderGCodeBuffer(rawLines) {
+    const terminal = document.getElementById('gcodeTerminal');
+    terminal.innerHTML = '';
+    rawLines.forEach((item, idx) => {
+      const div = document.createElement('div');
+      div.id = `gline-${idx}`;
+      div.className = 'gcode-row truncate';
+      div.innerText = item.text;
+      div.setAttribute('data-idx', idx);
+      terminal.appendChild(div);
+    });
+  }
+
+  startPlay() {
+    if (this.isPlaying) return;
+    this.isPlaying = true;
+    audioSynth.setSpindle(true, this.spindleRpm, true);
+
+    document.getElementById('btnCycleStart').classList.add('running-pulse');
+    document.getElementById('simPlayIcon').innerText = 'pause';
+    document.getElementById('simPlayText').innerText = 'PAUSE';
+    document.getElementById('hudSimLamp').className = 'led-lamp green-on led-pulse';
+    document.getElementById('simStateLabel').innerText = 'SIM-INTERPOLATING ACTIVE';
+
+    this.runTick();
+  }
+
+  pausePlay() {
+    this.isPlaying = false;
+    audioSynth.setSpindle(false);
+    clearTimeout(this.playbackTimer);
+
+    document.getElementById('btnCycleStart').classList.remove('running-pulse');
+    document.getElementById('simPlayIcon').innerText = 'play_arrow';
+    document.getElementById('simPlayText').innerText = 'RESUME';
+    document.getElementById('hudSimLamp').className = 'led-lamp amber-on';
+    document.getElementById('simStateLabel').innerText = 'FEED HOLD ACTIVE';
+  }
+
+  togglePlay() {
+    if (this.isPlaying) {
+      this.pausePlay();
+    } else {
+      this.startPlay();
+    }
+  }
+
+  stopPlay() {
+    this.pausePlay();
+    this.playbackIndex = 0;
+    this.elapsedSeconds = 0;
+    this.updateProgress(0);
+    this.updateDRO(0, 0, 1.0);
+    if (this.viewer) {
+      this.viewer.setCutterPosition(0, 0, 1.0);
+    }
+    document.getElementById('simPlayIcon').innerText = 'play_arrow';
+    document.getElementById('simPlayText').innerText = 'RUN';
+    document.getElementById('pipelineStatus').innerText = 'STANDBY';
+    document.getElementById('pipelineStatus').className = 'text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-800 font-bold';
+  }
+
+  rewind() {
+    this.stopPlay();
+    this.startPlay();
+  }
+
+  runTick() {
+    if (!this.isPlaying) return;
+    const ops = this.viewer.parsedData ? this.viewer.parsedData.operations : [];
+    if (ops.length === 0) return;
+
+    if (this.playbackIndex >= ops.length) {
+      // Loop or complete
+      this.playbackIndex = 0;
+    }
+
+    const op = ops[this.playbackIndex];
+    this.executeOperationStep(op);
+
+    this.playbackIndex++;
+    const pct = Math.round((this.playbackIndex / ops.length) * 100);
+    this.updateProgress(pct);
+
+    // Speed scaled by feed override
+    const delay = Math.max(25, 120 / (this.feedOverride || 1.0));
+    this.playbackTimer = setTimeout(() => this.runTick(), delay);
+  }
+
+  executeOperationStep(op) {
+    // 1. Move 3D tool
+    this.viewer.setCutterPosition(op.to.x, op.to.y, op.to.z);
+
+    // 2. Update DRO values with precision padding
+    this.updateDRO(op.to.x, op.to.y, op.to.z);
+
+    // 3. Update active tool pocket if tool changed
+    if (op.tool && op.tool !== this.activeTool) {
+      this.setToolSlot(op.tool);
+    }
+
+    // 4. Update Spindle & Feed Telemetry
+    if (op.spindle) this.spindleRpm = op.spindle;
+    this.updateSpindleReadout(this.spindleRpm, op.type === 'cut');
+    audioSynth.setSpindle(true, this.spindleRpm, op.type === 'cut');
+
+    // 5. Synchronize G-Code Buffer Scroll & Active Highlight (Item 4)
+    this.highlightGcodeLine(op.lineIndex, op.lineText);
+
+    // 6. Update HUD Interpolation Mode
+    document.getElementById('interpLabel').innerText = op.type === 'cut' ? 'G01 LINEAR' : 'G00 RAPID';
+  }
+
+  updateDRO(x, y, z) {
+    const fmt = (val) => (val >= 0 ? '+' : '') + val.toFixed(3).padStart(7, '0');
+    document.getElementById('droX').innerText = fmt(x);
+    document.getElementById('droY').innerText = fmt(y);
+    document.getElementById('droZ').innerText = fmt(z);
+    document.getElementById('droZLabel').innerText = z <= 0 ? 'INCH (CUTTING)' : 'INCH (RAPID)';
+  }
+
+  setToolSlot(toolNum) {
+    this.activeTool = toolNum;
+    const slots = [1, 2, 3];
+    slots.forEach(s => {
+      const slotEl = document.getElementById(`slot-t${s}`);
+      if (!slotEl) return;
+      const tag = slotEl.querySelector('.slot-tag');
+      if (s === toolNum) {
+        slotEl.className = 'turret-slot active bg-[#0a0f16] p-1.5 rounded flex items-center justify-between';
+        tag.className = 'text-[9px] bg-cyan-900/60 text-cyan-300 px-1.5 py-0.5 rounded font-bold slot-tag';
+        tag.innerText = 'IN SPINDLE';
+      } else {
+        slotEl.className = 'turret-slot bg-[#0a0f16] p-1.5 rounded flex items-center justify-between opacity-80';
+        tag.className = 'text-[9px] text-slate-500 slot-tag';
+        tag.innerText = `POCKET ${s}`;
+      }
+    });
+    const toolNames = {
+      1: '0.250 IN (T01 COMP)',
+      2: '0.098 IN (T02 DRILL)',
+      3: '0.689 IN (T03 HINGE)'
+    };
+    document.getElementById('telemetryTool').innerText = toolNames[toolNum] || `TOOL T0${toolNum}`;
+  }
+
+  updateSpindleReadout(rpm, isCutting) {
+    document.getElementById('telemetrySpindleRpm').innerText = `${rpm.toLocaleString()} RPM`;
+    document.getElementById('quickRpmStat').innerText = `${rpm.toLocaleString()} RPM`;
+    const feedVal = isCutting ? Math.round(800 * this.feedOverride) : 1200;
+    document.getElementById('telemetryFeedRate').innerText = `${feedVal} IPM`;
+    document.getElementById('quickFeedStat').innerText = `${feedVal} IPM`;
+  }
+
+  highlightGcodeLine(lineIndex, lineText) {
+    const term = document.getElementById('gcodeTerminal');
+    const prev = term.querySelector('.active-line');
+    if (prev) {
+      prev.classList.remove('active-line');
+      prev.classList.add('past-line');
+    }
+    const current = document.getElementById(`gline-${lineIndex}`);
+    if (current) {
+      current.classList.remove('past-line');
+      current.classList.add('active-line');
+      // Scroll into center smoothly
+      current.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+    }
+
+    const blockId = lineText.match(/^N(\d+)/i);
+    document.getElementById('currentGcodeLine').innerText = blockId ? ('N' + blockId[1]) : `L#${lineIndex + 1}`;
+  }
+
+  updateProgress(pct) {
+    document.getElementById('simProgressBar').style.width = `${pct}%`;
+    document.getElementById('telemetryPct').innerText = `${pct}%`;
+    const sec = Math.floor((pct / 100) * 88);
+    const mm = String(Math.floor(sec / 60)).padStart(2, '0');
+    const ss = String(sec % 60).padStart(2, '0');
+    document.getElementById('simTimeReadout').innerText = `${mm}:${ss} / 01:28 (SEC)`;
+  }
+}
+
+// Instantiate Viewport and Engine
+const viewer = new IndustrialCNCViewer();
+const engine = new CNCSimulationEngine(viewer);
+
+// Feed override slider handler
+window.onFeedOverrideChange = function(val) {
+  document.getElementById('feedOvrVal').innerText = val + '%';
+  engine.feedOverride = parseFloat(val) / 100;
+};
+
+// DRO Zeroing Mock
+window.zeroAxis = function(axis) {
+  const el = document.getElementById('dro' + axis);
+  if (el) {
+    el.innerText = '+000.000';
+    el.style.color = '#ffaa00';
+    setTimeout(() => { el.style.color = ''; }, 600);
+  }
+};
+
+// Reset Camera Button
+document.getElementById('btnReset').addEventListener('click', () => {
+  viewer.camera.position.set(650, 750, 850);
+  viewer.camera.lookAt(300, 0, -300);
+  viewer.controls.target.set(300, 0, -300);
+});
+
+// Emergency Stop interactivity
+const estopBtn = document.getElementById('btnEstop');
+let isEstopped = false;
+estopBtn.addEventListener('click', () => {
+  isEstopped = !isEstopped;
+  if (isEstopped) {
+    engine.stopPlay();
+    estopBtn.style.transform = 'translateY(8px)';
+    document.body.style.boxShadow = 'inset 0 0 50px rgba(255,0,0,0.6)';
+    document.getElementById('plcStatusLed').className = 'led-lamp red-on';
+    document.getElementById('plcStatusText').innerText = 'E-STOP TRIPPED';
+    document.getElementById('plcStatusText').className = 'text-red-500 font-bold';
+    alert('EMERGENCY STOP TRIPPED: All 5-axis servo power dropped. Safety relay open.');
+  } else {
+    estopBtn.style.transform = '';
+    document.body.style.boxShadow = '';
+    document.getElementById('plcStatusLed').className = 'led-lamp green-on';
+    document.getElementById('plcStatusText').innerText = 'RUNNING';
+    document.getElementById('plcStatusText').className = 'text-emerald-400 font-bold';
+  }
+});
+
+// Dismiss Boot Splash Screen
+setTimeout(() => {
+  const loader = document.getElementById('loading');
+  if (loader) loader.classList.add('hidden');
+}, 350);
+</script>
+</body></html>
